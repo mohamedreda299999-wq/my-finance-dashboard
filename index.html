@@ -1,0 +1,1843 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>محفظتي المالية | My Finance Dashboard</title>
+  <style>
+    :root {
+      --bg-slate-950: #020617;
+      --bg-slate-900: #0f172a;
+      --bg-slate-800: #1e293b;
+      --bg-slate-700: #334155;
+      --text-white: #ffffff;
+      --text-slate-100: #f8fafc;
+      --text-slate-300: #cbd5e1;
+      --text-slate-400: #94a3b8;
+      --text-slate-500: #64748b;
+      --emerald-500: #10b981;
+      --emerald-600: #059669;
+      --teal-400: #2dd4bf;
+      --amber-400: #fbbf24;
+      --red-400: #f87171;
+      --blue-400: #60a5fa;
+      --border-slate-800: #1e293b;
+      --border-slate-700: #334155;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Cairo', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--bg-slate-950);
+      color: var(--text-slate-100);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      direction: rtl;
+    }
+
+    @media (min-width: 768px) { body { flex-direction: row; } }
+
+    aside {
+      width: 100%;
+      background-color: var(--bg-slate-900);
+      border-bottom: 1px solid var(--border-slate-800);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      flex-shrink: 0;
+      color: var(--text-slate-300);
+    }
+
+    @media (min-width: 768px) {
+      aside {
+        width: 16rem;
+        min-height: 100vh;
+        border-bottom: none;
+        border-left: 1px solid var(--border-slate-800);
+      }
+    }
+
+    main {
+      flex: 1;
+      padding: 1.5rem;
+      max-width: 80rem;
+      margin: 0 auto;
+      width: 100%;
+      overflow-y: auto;
+    }
+
+    .card {
+      background-color: var(--bg-slate-900);
+      border: 1px solid var(--border-slate-800);
+      border-radius: 1rem;
+      padding: 1.25rem;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+    }
+
+    .grid-2 { display: grid; grid-template-columns: repeat(1, minmax(0, 1fr)); gap: 1rem; }
+    @media (min-width: 640px) { .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+    .grid-3 { display: grid; grid-template-columns: repeat(1, minmax(0, 1fr)); gap: 1rem; }
+    @media (min-width: 768px) { .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+    .grid-4 { display: grid; grid-template-columns: repeat(1, minmax(0, 1fr)); gap: 1rem; }
+    @media (min-width: 640px) { .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (min-width: 1024px) { .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.5rem 1rem;
+      border-radius: 0.75rem;
+      font-weight: 700;
+      font-size: 0.875rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: none;
+      outline: none;
+    }
+
+    .btn-primary { background: linear-gradient(to right, #10b981, #2dd4bf); color: #020617; }
+    .btn-primary:hover { opacity: 0.9; }
+
+    .btn-secondary { background-color: var(--bg-slate-800); color: var(--text-slate-100); border: 1px solid var(--border-slate-700); }
+    .btn-secondary:hover { background-color: var(--bg-slate-700); }
+
+    .btn-danger { background-color: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .btn-danger:hover { background-color: rgba(239, 68, 68, 0.25); }
+
+    .form-control {
+      width: 100%;
+      background-color: var(--bg-slate-800);
+      border: 1px solid var(--border-slate-700);
+      border-radius: 0.75rem;
+      padding: 0.625rem 0.875rem;
+      color: var(--text-white);
+      font-size: 0.875rem;
+      outline: none;
+    }
+    .form-control:focus { border-color: var(--emerald-500); }
+
+    .table-container { overflow-x: auto; width: 100%; }
+
+    table { width: 100%; border-collapse: collapse; text-align: right; font-size: 0.875rem; }
+    th { background-color: rgba(30, 41, 59, 0.6); color: var(--text-slate-400); padding: 0.75rem; font-weight: 600; border-bottom: 1px solid var(--border-slate-800); }
+    td { padding: 0.75rem; border-bottom: 1px solid var(--border-slate-800); color: var(--text-slate-300); }
+    tr:hover td { background-color: rgba(30, 41, 59, 0.4); }
+
+    .modal {
+      position: fixed; inset: 0; z-index: 50; display: none; align-items: center; justify-content: center;
+      background-color: rgba(2, 6, 23, 0.8); backdrop-filter: blur(4px); padding: 1rem;
+    }
+    .modal.active { display: flex; }
+
+    .modal-content {
+      background-color: var(--bg-slate-900);
+      border: 1px solid var(--border-slate-800);
+      border-radius: 1rem;
+      width: 100%; max-width: 28rem; padding: 1.5rem;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      position: relative; color: var(--text-slate-100);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- APP SIDEBAR -->
+  <aside>
+    <div>
+      <div style="padding: 1.25rem; border-bottom: 1px solid var(--border-slate-800); display: flex; align-items: center; gap: 0.75rem;">
+        <div style="width: 2.5rem; height: 2.5rem; border-radius: 0.75rem; background: linear-gradient(to top right, #10b981, #2dd4bf); display: flex; align-items: center; justify-content: center; color: #020617; font-weight: 900; font-size: 1.25rem;">
+          مال
+        </div>
+        <div>
+          <h1 style="font-size: 1.125rem; font-weight: 700; color: #fff; line-height: 1.2;">محفظتي المالية</h1>
+          <p style="font-size: 0.6875rem; color: var(--text-slate-400);">My Finance Dashboard</p>
+        </div>
+      </div>
+
+      <div style="padding: 1rem;">
+        <button onclick="openModal('quickExpenseModal')" class="btn btn-primary" style="width: 100%; gap: 0.5rem;">
+          <span>➕</span>
+          <span>إضافة مصروف سريع</span>
+        </button>
+      </div>
+
+      <nav id="sidebarNav" style="padding: 0.5rem; display: flex; flex-direction: column; gap: 0.25rem;"></nav>
+    </div>
+
+    <div style="padding: 1rem; border-top: 1px solid var(--border-slate-800); display: flex; flex-direction: column; gap: 0.75rem;">
+      <div style="background-color: rgba(30,41,59,0.6); padding: 0.75rem; border-radius: 0.75rem; border: 1px solid rgba(51,65,85,0.5); display: flex; align-items: center; justify-content: space-between; font-size: 0.75rem;">
+        <span style="color: var(--text-slate-300);">🪙 سعر الصرف</span>
+        <button onclick="openModal('rateModal')" id="rateBadge" style="font-weight: 700; color: var(--emerald-500); background: none; border: none; cursor: pointer; text-decoration: underline;">
+          1 ر.س = 13.0 ج.م
+        </button>
+      </div>
+      <div style="font-size: 0.6875rem; color: var(--text-slate-500); text-align: center;">
+        تطبيق محلي 100% يعمل بدون إنترنت 🇸🇦 🇪🇬
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT AREA -->
+  <main>
+    <header style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; background-color: var(--bg-slate-900); padding: 1rem; border-radius: 1rem; border: 1px solid var(--border-slate-800);">
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <span id="tabIcon" style="font-size: 1.5rem;">📊</span>
+        <div>
+          <h2 id="tabTitle" style="font-size: 1.25rem; font-weight: 700; color: #fff;">اللوحة الرئيسية</h2>
+          <p id="tabSubtitle" style="font-size: 0.75rem; color: var(--text-slate-400);">متابعة حية لجميع حساباتك، ميزانية الراتب، واستثماراتك</p>
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <button onclick="exportDataJSON()" class="btn btn-secondary" style="font-size: 0.75rem;">📥 نسخة احتياطية (JSON)</button>
+        <button onclick="exportTransactionsCSV()" class="btn btn-secondary" style="font-size: 0.75rem; color: var(--emerald-500);">📊 تصدير (CSV)</button>
+      </div>
+    </header>
+
+    <div id="viewContainer"></div>
+  </main>
+
+  <!-- MODALS CONTAINER -->
+  <!-- Quick Expense Modal -->
+  <div id="quickExpenseModal" class="modal">
+    <div class="modal-content">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; border-bottom: 1px solid var(--border-slate-800); padding-bottom: 0.75rem;">
+        <h3 style="font-size: 1.125rem; font-weight: 700; color: #fff;">إضافة مصروف سريع</h3>
+        <button onclick="closeModal('quickExpenseModal')" style="background: none; border: none; color: var(--text-slate-400); cursor: pointer; font-size: 1.25rem;">✕</button>
+      </div>
+      <form onsubmit="handleQuickExpenseSubmit(event)" style="display: flex; flex-direction: column; gap: 1rem;">
+        <div>
+          <label style="display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-slate-300); margin-bottom: 0.25rem;">المبلغ والعملة *</label>
+          <div style="display: flex; gap: 0.5rem;">
+            <input type="number" step="0.01" required id="qeAmount" placeholder="0.00" class="form-control" style="font-size: 1.125rem; font-weight: 700; flex: 1;">
+            <select id="qeCurrency" class="form-control" style="width: auto; font-weight: 700;">
+              <option value="SAR">SAR (ر.س)</option>
+              <option value="EGP">EGP (ج.م)</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label style="display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-slate-300); margin-bottom: 0.25rem;">الحساب المالي *</label>
+          <select id="qeAccountId" required class="form-control"></select>
+        </div>
+        <div>
+          <label style="display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-slate-300); margin-bottom: 0.25rem;">التصنيف</label>
+          <select id="qeCategoryId" class="form-control"></select>
+        </div>
+        <div>
+          <label style="display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-slate-300); margin-bottom: 0.25rem;">الوصف / البيان</label>
+          <input type="text" id="qeDescription" placeholder="مثال: مشتريات سوبرماركت" class="form-control">
+        </div>
+        <div style="display: flex; gap: 0.75rem; margin-top: 0.5rem;">
+          <button type="button" onclick="closeModal('quickExpenseModal')" class="btn btn-secondary" style="flex: 1;">إلغاء</button>
+          <button type="submit" class="btn btn-primary" style="flex: 1;">تسجيل المصروف</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Transfer Modal -->
+  <div id="transferModal" class="modal">
+    <div class="modal-content">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; border-bottom: 1px solid var(--border-slate-800); padding-bottom: 0.75rem;">
+        <h3 style="font-size: 1.125rem; font-weight: 700; color: #fff;">تحويل بين الحسابات الماليّة</h3>
+        <button onclick="closeModal('transferModal')" style="background: none; border: none; color: var(--text-slate-400); cursor: pointer; font-size: 1.25rem;">✕</button>
+      </div>
+      <form onsubmit="handleTransferSubmit(event)" style="display: flex; flex-direction: column; gap: 1rem;">
+        <div>
+          <label style="display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-slate-300); margin-bottom: 0.25rem;">من الحساب (خصم) *</label>
+          <select id="trFromAccountId" required class="form-control"></select>
+        </div>
+        <div>
+          <label style="display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-slate-300); margin-bottom: 0.25rem;">إلى الحساب (إيداع) *</label>
+          <select id="trToAccountId" required class="form-control"></select>
+        </div>
+        <div>
+          <label style="display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-slate-300); margin-bottom: 0.25rem;">المبلغ المحول *</label>
+          <input type="number" step="0.01" id="trAmount" required placeholder="0.00" class="form-control" style="font-size: 1.125rem; font-weight: 700;">
+        </div>
+        <div>
+          <label style="display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-slate-300); margin-bottom: 0.25rem;">ملاحظات / سبب التحويل</label>
+          <input type="text" id="trNote" placeholder="مثال: تغذية محفظة الاستثمار" class="form-control">
+        </div>
+        <div style="display: flex; gap: 0.75rem; margin-top: 0.5rem;">
+          <button type="button" onclick="closeModal('transferModal')" class="btn btn-secondary" style="flex: 1;">إلغاء</button>
+          <button type="submit" class="btn btn-primary" style="flex: 1;">تنفيذ التحويل الداخلي</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Trade Modal -->
+  <div id="tradeModal" class="modal">
+    <div class="modal-content">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; border-bottom: 1px solid var(--border-slate-800); padding-bottom: 0.75rem;">
+        <h3 style="font-size: 1.125rem; font-weight: 700; color: #fff;">تسجيل صفقة أسهم / كوبون</h3>
+        <button onclick="closeModal('tradeModal')" style="background: none; border: none; color: var(--text-slate-400); cursor: pointer; font-size: 1.25rem;">✕</button>
+      </div>
+      <form onsubmit="handleTradeSubmit(event)" style="display: flex; flex-direction: column; gap: 0.75rem;">
+        <div>
+          <label style="display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-slate-300); margin-bottom: 0.25rem;">نوع العملية *</label>
+          <select id="tradeType" required class="form-control">
+            <option value="BUY">شراء أسهم (BUY)</option>
+            <option value="SELL">بيع أسهم (SELL)</option>
+            <option value="DIVIDEND">توزيع أرباح / كوبون (DIVIDEND)</option>
+          </select>
+        </div>
+        <div>
+          <label style="display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-slate-300); margin-bottom: 0.25rem;">السهم *</label>
+          <select id="tradeStockId" required class="form-control"></select>
+        </div>
+        <div>
+          <label style="display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-slate-300); margin-bottom: 0.25rem;">المحفظة / الحساب المالي *</label>
+          <select id="tradeAccountId" required class="form-control"></select>
+        </div>
+        <div style="display: flex; gap: 0.5rem;">
+          <div style="flex: 1;">
+            <label style="display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-slate-300); margin-bottom: 0.25rem;">الكمية (الأسهم) *</label>
+            <input type="number" id="tradeQuantity" required placeholder="1000" class="form-control">
+          </div>
+          <div style="flex: 1;">
+            <label style="display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-slate-300); margin-bottom: 0.25rem;">سعر السهم / الكوبون *</label>
+            <input type="number" step="0.01" id="tradeUnitPrice" required placeholder="75.0" class="form-control">
+          </div>
+        </div>
+        <div>
+          <label style="display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-slate-300); margin-bottom: 0.25rem;">العمولة والرسوم</label>
+          <input type="number" step="0.01" id="tradeFee" placeholder="0.00" class="form-control">
+        </div>
+        <div style="display: flex; gap: 0.75rem; margin-top: 0.5rem;">
+          <button type="button" onclick="closeModal('tradeModal')" class="btn btn-secondary" style="flex: 1;">إلغاء</button>
+          <button type="submit" class="btn btn-primary" style="flex: 1;">تنفيذ الصفقة</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Exchange Rate Modal -->
+  <div id="rateModal" class="modal">
+    <div class="modal-content" style="max-width: 20rem;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; border-bottom: 1px solid var(--border-slate-800); padding-bottom: 0.75rem;">
+        <h3 style="font-size: 1rem; font-weight: 700; color: #fff;">تحديث سعر صرف (SAR/EGP)</h3>
+        <button onclick="closeModal('rateModal')" style="background: none; border: none; color: var(--text-slate-400); cursor: pointer; font-size: 1.25rem;">✕</button>
+      </div>
+      <form onsubmit="handleRateSubmit(event)" style="display: flex; flex-direction: column; gap: 1rem;">
+        <div>
+          <label style="display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-slate-300); margin-bottom: 0.25rem;">1 ريال سعودي يساوي كم جنيه؟</label>
+          <input type="number" step="0.1" id="newRateInput" required class="form-control" style="font-size: 1.125rem; font-weight: 700;">
+        </div>
+        <div style="display: flex; gap: 0.5rem;">
+          <button type="button" onclick="closeModal('rateModal')" class="btn btn-secondary" style="flex: 1;">إلغاء</button>
+          <button type="submit" class="btn btn-primary" style="flex: 1;">تحديث السعر</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Account Modal -->
+  <div id="addAccountModal" class="modal">
+    <div class="modal-content">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; border-bottom: 1px solid var(--border-slate-800); padding-bottom: 0.75rem;">
+        <h3 style="font-size: 1.125rem; font-weight: 700; color: #fff;">إضافة حساب مالي جديد</h3>
+        <button onclick="closeModal('addAccountModal')" style="background: none; border: none; color: var(--text-slate-400); cursor: pointer; font-size: 1.25rem;">✕</button>
+      </div>
+      <form onsubmit="handleAddAccountSubmit(event)" style="display: flex; flex-direction: column; gap: 0.75rem;">
+        <div>
+          <label style="display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-slate-300); margin-bottom: 0.25rem;">اسم الحساب *</label>
+          <input type="text" id="newAccName" required placeholder="مثال: حساب البنك الأهلي" class="form-control">
+        </div>
+        <div>
+          <label style="display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-slate-300); margin-bottom: 0.25rem;">نوع الحساب *</label>
+          <select id="newAccType" required class="form-control">
+            <option value="SAUDI_BANK">بنك سعودي (SAR)</option>
+            <option value="EGYPTIAN_BANK">بنك مصري (EGP)</option>
+            <option value="CASH">محفظة كاش</option>
+            <option value="BROKERAGE">محفظة أسهم واستثمار</option>
+          </select>
+        </div>
+        <div>
+          <label style="display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-slate-300); margin-bottom: 0.25rem;">الرصيد الافتتاحي والعملة *</label>
+          <div style="display: flex; gap: 0.5rem;">
+            <input type="number" step="0.01" id="newAccBalance" required placeholder="0.00" class="form-control" style="flex: 1;">
+            <select id="newAccCurrency" class="form-control" style="width: auto;">
+              <option value="SAR">SAR</option>
+              <option value="EGP">EGP</option>
+            </select>
+          </div>
+        </div>
+        <div style="display: flex; gap: 0.75rem; margin-top: 0.5rem;">
+          <button type="button" onclick="closeModal('addAccountModal')" class="btn btn-secondary" style="flex: 1;">إلغاء</button>
+          <button type="submit" class="btn btn-primary" style="flex: 1;">إنشاء الحساب</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Obligation Modal -->
+  <div id="addObligationModal" class="modal">
+    <div class="modal-content">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; border-bottom: 1px solid var(--border-slate-800); padding-bottom: 0.75rem;">
+        <h3 style="font-size: 1.125rem; font-weight: 700; color: #fff;">إضافة التزام / قسط جديد</h3>
+        <button onclick="closeModal('addObligationModal')" style="background: none; border: none; color: var(--text-slate-400); cursor: pointer; font-size: 1.25rem;">✕</button>
+      </div>
+      <form onsubmit="handleAddObligationSubmit(event)" style="display: flex; flex-direction: column; gap: 0.75rem;">
+        <div>
+          <label style="display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-slate-300); margin-bottom: 0.25rem;">اسم الالتزام *</label>
+          <input type="text" id="obTitle" required placeholder="مثال: قسط تمويل السيارة" class="form-control">
+        </div>
+        <div style="display: flex; gap: 0.5rem;">
+          <div style="flex: 1;">
+            <label style="display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-slate-300); margin-bottom: 0.25rem;">المبلغ الإجمالي *</label>
+            <input type="number" step="0.01" id="obTotalAmount" required placeholder="96000" class="form-control">
+          </div>
+          <div style="flex: 1;">
+            <label style="display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-slate-300); margin-bottom: 0.25rem;">القسط الشهري *</label>
+            <input type="number" step="0.01" id="obMonthlyPayment" required placeholder="2000" class="form-control">
+          </div>
+        </div>
+        <div style="display: flex; gap: 0.5rem;">
+          <div style="flex: 1;">
+            <label style="display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-slate-300); margin-bottom: 0.25rem;">يوم الاستحقاق الشهري *</label>
+            <input type="number" id="obDueDate" required value="5" min="1" max="31" class="form-control">
+          </div>
+          <div style="flex: 1;">
+            <label style="display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-slate-300); margin-bottom: 0.25rem;">الجهة / المورد</label>
+            <input type="text" id="obProvider" placeholder="مثال: مصرف الراجحي" class="form-control">
+          </div>
+        </div>
+        <div>
+          <label style="display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-slate-300); margin-bottom: 0.25rem;">حساب الخصم المفضل</label>
+          <select id="obAccountId" class="form-control"></select>
+        </div>
+        <div style="display: flex; gap: 0.75rem; margin-top: 0.5rem;">
+          <button type="button" onclick="closeModal('addObligationModal')" class="btn btn-secondary" style="flex: 1;">إلغاء</button>
+          <button type="submit" class="btn btn-primary" style="flex: 1;">حفظ الالتزام</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Stock Definition Modal -->
+  <div id="addStockModal" class="modal">
+    <div class="modal-content">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; border-bottom: 1px solid var(--border-slate-800); padding-bottom: 0.75rem;">
+        <h3 style="font-size: 1.125rem; font-weight: 700; color: #fff;">إضافة سهم جديد للقائمة</h3>
+        <button onclick="closeModal('addStockModal')" style="background: none; border: none; color: var(--text-slate-400); cursor: pointer; font-size: 1.25rem;">✕</button>
+      </div>
+      <form onsubmit="handleAddStockSubmit(event)" style="display: flex; flex-direction: column; gap: 0.75rem;">
+        <div>
+          <label style="display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-slate-300); margin-bottom: 0.25rem;">رمز السهم (Symbol) *</label>
+          <input type="text" id="stSymbol" required placeholder="مثال: COMI أو EAST" class="form-control" style="text-transform: uppercase;">
+        </div>
+        <div>
+          <label style="display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-slate-300); margin-bottom: 0.25rem;">اسم الشركة *</label>
+          <input type="text" id="stCompanyName" required placeholder="مثال: البنك التجاري الدولي" class="form-control">
+        </div>
+        <div style="display: flex; gap: 0.5rem;">
+          <div style="flex: 1;">
+            <label style="display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-slate-300); margin-bottom: 0.25rem;">السعر الحالي المبدئي *</label>
+            <input type="number" step="0.01" id="stCurrentPrice" required placeholder="84.5" class="form-control">
+          </div>
+          <div style="flex: 1;">
+            <label style="display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-slate-300); margin-bottom: 0.25rem;">السوق والعملة</label>
+            <select id="stMarket" class="form-control">
+              <option value="EGX">البورصة المصرية (EGP)</option>
+              <option value="TADAWUL">السوق السعودي (SAR)</option>
+            </select>
+          </div>
+        </div>
+        <div style="display: flex; gap: 0.75rem; margin-top: 0.5rem;">
+          <button type="button" onclick="closeModal('addStockModal')" class="btn btn-secondary" style="flex: 1;">إلغاء</button>
+          <button type="submit" class="btn btn-primary" style="flex: 1;">إضافة السهم</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- APPLICATION LOGIC IN VANILLA JAVASCRIPT -->
+  <script>
+    // FINANCIAL LEDGER ENGINE CLASS
+    class FinancialEngine {
+      constructor(store) { this.store = store; }
+
+      getRate() { const rate = Number(this.store.settings?.currencyRateSAR_EGP ?? 13); if (!Number.isFinite(rate) || rate <= 0) throw new Error('سعر الصرف غير صالح'); return rate; }
+
+      convert(amount, fromCurr, toCurr) {
+        if (fromCurr === toCurr) return amount;
+        const rate = this.getRate();
+        if (fromCurr === 'SAR' && toCurr === 'EGP') return amount * rate;
+        if (fromCurr === 'EGP' && toCurr === 'SAR') return amount / rate;
+        return amount;
+      }
+
+      convertHistorical(tx, targetCurrency) {
+        if (tx.currency === targetCurrency) return tx.amount;
+        const rate = Number(tx.exchangeRate || this.getRate());
+        if (!Number.isFinite(rate) || rate <= 0) throw new Error('سعر صرف العملية التاريخية غير صالح');
+        if (tx.currency === 'SAR' && targetCurrency === 'EGP') return tx.amount * rate;
+        if (tx.currency === 'EGP' && targetCurrency === 'SAR') return tx.amount / rate;
+        throw new Error('عملة غير مدعومة');
+      }
+
+      getActiveSalaryCycle() {
+        return this.store.salaryCycles.find(c => c.status === 'ACTIVE') || this.store.salaryCycles[0] || null;
+      }
+
+      calculateSalaryCycleSummary(cycleId) {
+        const cycle = cycleId ? this.store.salaryCycles.find(c => c.id === cycleId) : this.getActiveSalaryCycle();
+        if (!cycle) return { salaryAmount: 0, carryForwardAmount: 0, cycleExpenses: 0, cycleExtraIncome: 0, totalAvailableBudget: 0, remainingSalaryBudget: 0, categoryBreakdown: {} };
+
+        const startDate = new Date(cycle.startDate);
+        const endDate = new Date(cycle.endDate);
+        endDate.setHours(23, 59, 59, 999);
+
+        let cycleExpenses = 0;
+        let cycleExtraIncome = 0;
+        const categoryBreakdown = {};
+
+        this.store.transactions.forEach(tx => {
+          const txDate = new Date(tx.date);
+          if (txDate >= startDate && txDate <= endDate) {
+            if (tx.type === 'EXPENSE') {
+              const amountInSAR = this.convertHistorical(tx, 'SAR');
+              cycleExpenses += amountInSAR;
+              const cat = this.store.categories.find(c => c.id === tx.categoryId);
+              const catName = cat ? cat.name : 'مصاريف أخرى';
+              categoryBreakdown[catName] = (categoryBreakdown[catName] || 0) + amountInSAR;
+            } else if (tx.type === 'INCOME' && tx.categoryId !== 'cat_salary' && tx.incomeKind !== 'SALARY') {
+              const amountInSAR = this.convertHistorical(tx, 'SAR');
+              cycleExtraIncome += amountInSAR;
+            }
+          }
+        });
+
+        const totalAvailableBudget = cycle.salaryAmount + (cycle.carryForwardAmount || 0) + cycleExtraIncome;
+        const remainingSalaryBudget = totalAvailableBudget - cycleExpenses;
+
+        return { cycle, salaryAmount: cycle.salaryAmount, carryForwardAmount: cycle.carryForwardAmount || 0, cycleExpenses, cycleExtraIncome, totalAvailableBudget, remainingSalaryBudget, categoryBreakdown };
+      }
+
+      calculateNetWorth() {
+        const rate = this.getRate();
+        let totalCashSAR = 0;
+        let totalCashEGP = 0;
+
+        this.store.accounts.forEach(acc => {
+          if (acc.currency === 'SAR') totalCashSAR += acc.balance;
+          if (acc.currency === 'EGP') totalCashEGP += acc.balance;
+        });
+
+        const totalLiquidCashSAR = totalCashSAR + (totalCashEGP / rate);
+        const portfolio = this.calculatePortfolioSummary();
+        const portfolioValueSAR = portfolio.totalValueSAR;
+
+        let totalLiabilitiesSAR = 0;
+        this.store.obligations.forEach(ob => {
+          ob.payments.forEach(p => {
+            if (p.status === 'PENDING') {
+              const pCurrency = ob.currency || 'SAR';
+              totalLiabilitiesSAR += this.convert(p.amount, pCurrency, 'SAR');
+            }
+          });
+        });
+
+        const totalAssetsSAR = totalLiquidCashSAR + portfolioValueSAR;
+        const netWorthSAR = totalAssetsSAR - totalLiabilitiesSAR;
+
+        return { totalCashSAR, totalCashEGP, totalLiquidCashSAR, portfolioValueEGP: portfolio.totalValueEGP, portfolioValueSAR, totalAssetsSAR, totalLiabilitiesSAR, netWorthSAR };
+      }
+
+      calculateStockHolding(stockId) {
+        const stock = this.store.stocks.find(s => s.id === stockId);
+        if (!stock) return null;
+
+        let quantity = 0, totalCost = 0, avgCost = 0, realizedPL = 0, totalDividends = 0;
+
+        const trades = this.store.portfolioTrades
+          .filter(t => t.stockId === stockId)
+          .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        trades.forEach(tr => {
+          if (tr.type === 'BUY') {
+            totalCost += (tr.quantity * tr.unitPrice) + (tr.fee || 0);
+            quantity += tr.quantity;
+            avgCost = quantity > 0 ? totalCost / quantity : 0;
+          } else if (tr.type === 'SELL') {
+            const costBasisOfSold = avgCost * tr.quantity;
+            const netProceeds = (tr.quantity * tr.unitPrice) - (tr.fee || 0);
+            realizedPL += (netProceeds - costBasisOfSold);
+            quantity -= tr.quantity;
+            totalCost = avgCost * quantity;
+          } else if (tr.type === 'DIVIDEND') {
+            totalDividends += (tr.quantity * tr.unitPrice) - (tr.fee || 0);
+          }
+        });
+
+        const currentValue = quantity * stock.currentPrice;
+        const unrealizedPL = currentValue - totalCost;
+        const unrealizedPLPercent = totalCost > 0 ? (unrealizedPL / totalCost) * 100 : 0;
+
+        return { stock, quantity, avgCost, totalCost, currentValue, unrealizedPL, unrealizedPLPercent, realizedPL, totalDividends };
+      }
+
+      calculatePortfolioSummary() {
+        let totalValueEGP = 0, totalUnrealizedEGP = 0, totalRealizedEGP = 0, totalDividendsEGP = 0;
+        let totalValueSAR = 0;
+        const holdings = [];
+
+        this.store.stocks.forEach(stock => {
+          const holding = this.calculateStockHolding(stock.id);
+          if (holding && (holding.quantity > 0 || holding.totalDividends > 0 || holding.realizedPL !== 0)) {
+            holdings.push(holding);
+            if (stock.currency === 'EGP') {
+              totalValueEGP += holding.currentValue;
+              totalUnrealizedEGP += holding.unrealizedPL;
+              totalRealizedEGP += holding.realizedPL;
+              totalDividendsEGP += holding.totalDividends;
+            } else if (stock.currency === 'SAR') {
+              totalValueSAR += holding.currentValue;
+            }
+          }
+        });
+
+        const rate = this.getRate();
+        const grandTotalValueSAR = totalValueSAR + (totalValueEGP / rate);
+
+        return { holdings, totalValueEGP, totalUnrealizedEGP, totalRealizedEGP, totalDividendsEGP, totalValueSAR: grandTotalValueSAR };
+      }
+
+      addTransaction(txData) {
+        const { amount, currency, type, description, categoryId, accountId, date } = txData;
+        const numAmount = Number(amount);
+        if (!Number.isFinite(numAmount) || numAmount <= 0) throw new Error('المبلغ غير صالح');
+        if (date && !Number.isFinite(Date.parse(date))) throw new Error('تاريخ العملية غير صالح');
+
+        const account = this.store.accounts.find(a => a.id === accountId);
+        if (!account) throw new Error('الحساب المالي غير موجود');
+
+        const txCurrency = currency || account.currency;
+        const accountDeductionAmount = this.convert(numAmount, txCurrency, account.currency);
+        const lockedRate = this.getRate();
+
+        if (type === 'EXPENSE') account.balance -= accountDeductionAmount;
+        else if (type === 'INCOME') account.balance += accountDeductionAmount;
+
+        const transaction = {
+          id: 'tx_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+          date: date || new Date().toISOString(),
+          amount: numAmount,
+          currency: txCurrency,
+          type, description, categoryId, accountId, accountAmount: accountDeductionAmount, exchangeRate: lockedRate
+        };
+
+        this.store.transactions.push(transaction);
+        return transaction;
+      }
+
+      deleteTransaction(txId) {
+        const idx = this.store.transactions.findIndex(t => t.id === txId);
+        if (idx === -1) throw new Error('المعاملة غير موجودة');
+
+        const tx = this.store.transactions[idx];
+        const account = this.store.accounts.find(a => a.id === tx.accountId);
+
+        if (tx.tradeId) {
+          throw new Error('لا يمكن حذف معاملات الاستثمار المباشرة secara منفصلة. يرجى حذف الصفقة من قائمة الصفقات الاستثمارية.');
+        }
+
+        if (account) {
+          const deductionAmount = tx.accountAmount ?? this.convert(tx.amount, tx.currency, account.currency);
+          if (tx.type === 'EXPENSE' || tx.type === 'INVESTMENT_BUY') {
+            account.balance += deductionAmount;
+          } else if (tx.type === 'INCOME' || tx.type === 'INVESTMENT_SELL' || tx.type === 'DIVIDEND') {
+            account.balance -= deductionAmount;
+          } else if (tx.type === 'TRANSFER') {
+            if (tx.transferRole === 'INCOMING') {
+              account.balance -= deductionAmount;
+            } else {
+              account.balance += deductionAmount;
+            }
+          }
+        }
+
+        if (tx.transferPairId) {
+          const pairTx = this.store.transactions.find(t => t.id === tx.transferPairId);
+          if (pairTx) {
+            const pairAccount = this.store.accounts.find(a => a.id === pairTx.accountId);
+            if (pairAccount) {
+              const pairDeduction = pairTx.accountAmount ?? this.convert(pairTx.amount, pairTx.currency, pairAccount.currency);
+              if (pairTx.transferRole === 'INCOMING') {
+                pairAccount.balance -= pairDeduction;
+              } else if (pairTx.transferRole === 'OUTGOING') {
+                pairAccount.balance += pairDeduction;
+              } else if (pairTx.type === 'TRANSFER') {
+                if (tx.transferRole === 'INCOMING') pairAccount.balance += pairDeduction;
+                else pairAccount.balance -= pairDeduction;
+              }
+            }
+          }
+          this.store.transactions = this.store.transactions.filter(t => t.id !== tx.transferPairId);
+        }
+
+        this.store.transactions = this.store.transactions.filter(t => t.id !== txId);
+        return true;
+      }
+
+      executeTransfer(fromAccountId, toAccountId, fromAmount, note) {
+        const fromAcc = this.store.accounts.find(a => a.id === fromAccountId);
+        const toAcc = this.store.accounts.find(a => a.id === toAccountId);
+
+        if (!fromAcc || !toAcc) throw new Error('أحد الحسابات المحددة غير موجود');
+        if (fromAccountId === toAccountId) throw new Error('لا يمكن التحويل لنفس الحساب');
+
+        const numFromAmount = Number(fromAmount);
+        if (!Number.isFinite(numFromAmount) || numFromAmount <= 0) throw new Error('مبلغ التحويل غير صالح');
+
+        let toAmount = numFromAmount;
+        if (fromAcc.currency !== toAcc.currency) {
+          toAmount = this.convert(numFromAmount, fromAcc.currency, toAcc.currency);
+        }
+
+        fromAcc.balance -= numFromAmount;
+        toAcc.balance += toAmount;
+
+        const pairId1 = 'tx_' + Date.now() + '_tr1';
+        const pairId2 = 'tx_' + Date.now() + '_tr2';
+
+        const txFrom = {
+          id: pairId1, transferPairId: pairId2, transferRole: 'OUTGOING', date: new Date().toISOString(),
+          amount: numFromAmount, currency: fromAcc.currency, type: 'TRANSFER',
+          description: `تحويل داخلي إلى ${toAcc.name} (${note || ''})`, accountId: fromAccountId, accountAmount: numFromAmount, exchangeRate: this.getRate()
+        };
+
+        const txTo = {
+          id: pairId2, transferPairId: pairId1, transferRole: 'INCOMING', date: new Date().toISOString(),
+          amount: toAmount, currency: toAcc.currency, type: 'TRANSFER',
+          description: `تحويل داخلي وارد من ${fromAcc.name} (${note || ''})`, accountId: toAccountId, accountAmount: toAmount, exchangeRate: this.getRate()
+        };
+
+        this.store.transactions.push(txFrom);
+        this.store.transactions.push(txTo);
+
+        return { txFrom, txTo, toAmount };
+      }
+
+      executeTrade(tradeData) {
+        const { stockId, accountId, type, quantity, unitPrice, fee } = tradeData;
+        const numQty = Number(quantity);
+        const numPrice = Number(unitPrice);
+        const numFee = Number(fee || 0);
+
+        if (!Number.isFinite(numQty) || numQty <= 0) throw new Error('عدد الأسهم غير صالح');
+        if (!Number.isFinite(numPrice) || numPrice <= 0 || !Number.isFinite(numFee) || numFee < 0) throw new Error('سعر السهم أو العمولة غير صالح');
+
+        const stock = this.store.stocks.find(s => s.id === stockId);
+        if (!stock) throw new Error('السهم غير موجود');
+
+        const account = this.store.accounts.find(a => a.id === accountId);
+        if (!account) throw new Error('الحساب المالي غير موجود');
+
+        if (stock.currency !== account.currency) {
+          throw new Error(`تعارض العملة: السهم (${stock.symbol}) يستند إلى عملة ${stock.currency} بينما الحساب المالي (${account.name}) بالـ ${account.currency}. يرجى استخدام حساب متوافق.`);
+        }
+
+        if (!['BUY', 'SELL', 'DIVIDEND'].includes(type)) throw new Error('نوع العملية غير صالح');
+        if (type === 'DIVIDEND' && numQty * numPrice <= numFee) throw new Error('توزيع الأرباح يجب أن يتجاوز العمولة');
+        if (type === 'SELL') {
+          const holding = this.calculateStockHolding(stockId);
+          const currentQty = holding ? holding.quantity : 0;
+          if (numQty > currentQty) {
+            throw new Error(`لا يمكنك بيع ${numQty} سهم. الملكية الحالية المتاحة هي ${currentQty} سهم فقط.`);
+          }
+        }
+
+        const netAmount = (numQty * numPrice) + (type === 'BUY' ? numFee : -numFee);
+        if (type !== 'BUY' && netAmount < 0) throw new Error('العمولة تتجاوز قيمة العملية');
+
+        if (type === 'BUY') account.balance -= netAmount;
+        else if (type === 'SELL' || type === 'DIVIDEND') account.balance += (numQty * numPrice) - numFee;
+
+        const tradeId = 'pt_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+        const trade = {
+          id: tradeId,
+          stockId, accountId, type, quantity: numQty, unitPrice: numPrice, fee: numFee,
+          totalAmount: netAmount, currency: stock.currency, date: new Date().toISOString()
+        };
+
+        this.store.portfolioTrades.push(trade);
+
+        this.store.transactions.push({
+          id: 'tx_inv_' + Date.now(),
+          tradeId,
+          date: new Date().toISOString(),
+          amount: type === 'BUY' ? netAmount : (numQty * numPrice - numFee), currency: stock.currency, accountAmount: type === 'BUY' ? netAmount : (numQty * numPrice - numFee), exchangeRate: this.getRate(),
+          type: type === 'BUY' ? 'INVESTMENT_BUY' : type === 'SELL' ? 'INVESTMENT_SELL' : 'DIVIDEND',
+          description: `${type === 'BUY' ? 'شراء أسهم' : type === 'SELL' ? 'بيع أسهم' : 'كوبون أرباح'}: ${stock.symbol} (${numQty} سهم بسعر ${numPrice})`,
+          accountId
+        });
+
+        return trade;
+      }
+
+      generateInstallmentSchedule(obligationData) {
+        const { title, totalAmount, monthlyPayment, startDate, endDate, dueDate, provider, accountId } = obligationData;
+        const numTotal = Number(totalAmount);
+        const numMonthly = Number(monthlyPayment);
+        const numDue = Number(dueDate || 5);
+        const linkedAccount = this.store.accounts.find(a => a.id === accountId);
+        if (!linkedAccount) throw new Error('اختر حسابًا صالحًا للقسط');
+        if (![numTotal,numMonthly,numDue].every(Number.isFinite) || numTotal <= 0 || numMonthly <= 0 || !Number.isInteger(numDue) || numDue < 1 || numDue > 31) throw new Error('بيانات القسط غير صالحة');
+
+        const start = new Date(startDate || new Date());
+        const requiredMonths = Math.ceil(numTotal / numMonthly);
+        const end = new Date(endDate || new Date(start.getFullYear(), start.getMonth() + requiredMonths + 1, 0));
+        if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || end < start) throw new Error('تواريخ الأقساط غير صالحة');
+
+        const payments = [];
+        let curr = new Date(start.getFullYear(), start.getMonth(), numDue);
+        if (curr < start) curr.setMonth(curr.getMonth() + 1);
+
+        while (curr <= end && payments.length * numMonthly < numTotal) {
+          payments.push({
+            id: 'pay_' + Date.now() + '_' + payments.length,
+            amount: Math.min(numMonthly, numTotal - (payments.length * numMonthly)),
+            dueDate: curr.toISOString().slice(0, 10),
+            status: 'PENDING'
+          });
+          curr = new Date(curr.getFullYear(), curr.getMonth() + 1, Math.min(numDue, new Date(curr.getFullYear(), curr.getMonth() + 2, 0).getDate()));
+        }
+        if (Math.abs(payments.reduce((sum,p) => sum+p.amount,0)-numTotal)>0.005) throw new Error('الفترة غير كافية لسداد إجمالي الأقساط، زوّد تاريخ الانتهاء');
+
+        const obligation = {
+          id: 'ob_' + Date.now(),
+          title,
+          totalAmount: numTotal,
+          monthlyPayment: numMonthly,
+          startDate: start.toISOString().slice(0, 10),
+          endDate: end.toISOString().slice(0, 10),
+          dueDate: numDue,
+          provider: provider || '',
+          accountId: accountId || null,
+          currency: linkedAccount.currency,
+          payments
+        };
+
+        this.store.obligations.push(obligation);
+        return obligation;
+      }
+
+      payInstallment(obligationId, paymentId, accountId) {
+        const ob = this.store.obligations.find(o => o.id === obligationId);
+        if (!ob) throw new Error('الالتزام غير موجود');
+
+        const p = ob.payments.find(pay => pay.id === paymentId);
+        if (!p) throw new Error('القسط غير موجود');
+        if (p.status === 'PAID') throw new Error('هذا القسط مسدد بالفعل');
+
+        const accId = accountId || ob.accountId;
+        const account = this.store.accounts.find(a => a.id === accId);
+        if (!account) throw new Error('الحساب المالي للخصم غير موجود');
+
+        const deductionAmount = this.convert(p.amount, ob.currency || account.currency, account.currency);
+        account.balance -= deductionAmount;
+        p.status = 'PAID';
+
+        const tx = {
+          id: 'tx_pay_' + Date.now(), installmentPaymentId: paymentId, date: new Date().toISOString(),
+          amount: p.amount, currency: ob.currency || account.currency, accountAmount: deductionAmount, exchangeRate: this.getRate(), type: 'EXPENSE',
+          description: `سداد قسط: ${ob.title}`, accountId: account.id
+        };
+
+        p.transactionId = tx.id;
+        this.store.transactions.push(tx);
+
+        return tx;
+      }
+
+      reverseInstallmentPayment(obligationId, paymentId) {
+        const ob = this.store.obligations.find(o => o.id === obligationId);
+        if (!ob) throw new Error('الالتزام غير موجود');
+
+        const p = ob.payments.find(pay => pay.id === paymentId);
+        if (!p) throw new Error('القسط غير موجود');
+        if (p.status !== 'PAID') throw new Error('هذا القسط غير مسدد');
+
+        if (p.transactionId) {
+          const txIdx = this.store.transactions.findIndex(t => t.id === p.transactionId);
+          if (txIdx !== -1) {
+            const tx = this.store.transactions[txIdx];
+            const account = this.store.accounts.find(a => a.id === tx.accountId);
+            if (account) account.balance += tx.accountAmount ?? this.convert(tx.amount, tx.currency, account.currency);
+            this.store.transactions.splice(txIdx, 1);
+          }
+        } else {
+          const account = this.store.accounts.find(a => a.id === ob.accountId) || this.store.accounts[0];
+          if (account) account.balance += this.convert(p.amount, ob.currency || 'SAR', account.currency);
+        }
+
+        p.status = 'PENDING';
+        p.transactionId = null;
+
+        return true;
+      }
+
+      deleteAccountSafely(accId) {
+        const hasTransactions = this.store.transactions.some(t => t.accountId === accId);
+        const hasTrades = this.store.portfolioTrades.some(t => t.accountId === accId);
+        const hasObligations = this.store.obligations.some(o => o.accountId === accId);
+
+        if (hasTransactions || hasTrades || hasObligations) {
+          throw new Error('لا يمكن حذف هذا الحساب المالي لوجود معاملات مالية، صفقات استثمارية، أو أقساط مرتبطة به.');
+        }
+
+        this.store.accounts = this.store.accounts.filter(a => a.id !== accId);
+        return true;
+      }
+
+      static validateBackupJSON(data) {
+        if (!data || typeof data !== 'object' || Array.isArray(data)) return false;
+        const arrays = ['accounts','transactions','stocks','obligations','portfolioTrades','salaryCycles','categories'];
+        if (!arrays.every(k => Array.isArray(data[k]))) return false;
+        if (!data.settings || !Number.isFinite(Number(data.settings.currencyRateSAR_EGP)) || Number(data.settings.currencyRateSAR_EGP) <= 0) return false;
+        const ids = new Set(), accounts = new Map(), stocks = new Set(), trades = new Set();
+        const money = v => typeof v === 'number' && Number.isFinite(v);
+        for (const a of data.accounts) {
+          if (!a || typeof a.id !== 'string' || !a.id || ids.has('a:'+a.id) || !['SAR','EGP'].includes(a.currency) || !money(a.balance)) return false;
+          ids.add('a:'+a.id); accounts.set(a.id,a);
+        }
+        for (const st of data.stocks) {
+          if (!st || typeof st.id !== 'string' || !st.id || stocks.has(st.id) || !['SAR','EGP'].includes(st.currency) || !money(st.currentPrice) || st.currentPrice < 0) return false;
+          stocks.add(st.id);
+        }
+        for (const tr of data.portfolioTrades) {
+          if (!tr || typeof tr.id !== 'string' || !tr.id || trades.has(tr.id) || !stocks.has(tr.stockId) || !accounts.has(tr.accountId) || !['BUY','SELL','DIVIDEND'].includes(tr.type) || !money(tr.quantity) || tr.quantity <= 0 || !money(tr.unitPrice) || tr.unitPrice < 0 || !money(tr.fee) || tr.fee < 0 || !Number.isFinite(Date.parse(tr.date))) return false;
+          trades.add(tr.id);
+        }
+        const txIds = new Set();
+        for (const tx of data.transactions) {
+          if (!tx || typeof tx.id !== 'string' || !tx.id || txIds.has(tx.id) || !accounts.has(tx.accountId) || !['SAR','EGP'].includes(tx.currency) || !money(tx.amount) || tx.amount < 0 || !Number.isFinite(Date.parse(tx.date)) || (tx.accountAmount !== undefined && (!money(tx.accountAmount) || tx.accountAmount < 0)) || (tx.tradeId && !trades.has(tx.tradeId))) return false;
+          txIds.add(tx.id);
+        }
+        for (const tx of data.transactions) if (tx.transferPairId && (!txIds.has(tx.transferPairId) || !data.transactions.some(p => p.id === tx.transferPairId && p.transferPairId === tx.id))) return false;
+        for (const ob of data.obligations) {
+          if (!ob || !Array.isArray(ob.payments) || (ob.accountId && !accounts.has(ob.accountId)) || !money(ob.totalAmount) || ob.totalAmount < 0 || (ob.currency && !['SAR','EGP'].includes(ob.currency))) return false;
+          if (ob.payments.some(p => !p || !money(p.amount) || p.amount <= 0 || !['PAID','PENDING'].includes(p.status) || !Number.isFinite(Date.parse(p.dueDate)) || (p.status === 'PAID' && p.transactionId && !txIds.has(p.transactionId)))) return false;
+        }
+        return true;
+      }
+    }
+
+    // DEFAULT DEMO DATA
+    const DEMO_STORE = {
+      settings: { currencyRateSAR_EGP: 13.0 },
+      accounts: [
+        { id: 'acc_saudi_bank', name: 'حساب الراجحي (السعودية)', type: 'SAUDI_BANK', balance: 18500.0, currency: 'SAR', accountNumber: 'SA8280000001234567890' },
+        { id: 'acc_saudi_wallet', name: 'المحفظة الكاش (ريال)', type: 'CASH', balance: 1200.0, currency: 'SAR', accountNumber: '' },
+        { id: 'acc_egypt_bank', name: 'حساب البنك الأهلي (مصر)', type: 'EGYPTIAN_BANK', balance: 145000.0, currency: 'EGP', accountNumber: 'EG1200010001234567890' },
+        { id: 'acc_thndr', name: 'محفظة ثاندر للأوراق المالية', type: 'BROKERAGE', balance: 55000.0, currency: 'EGP', accountNumber: 'THNDR-EGX-998' }
+      ],
+      categories: [
+        { id: 'cat_groceries', name: 'المواد الغذائية والسوبرماركت', type: 'EXPENSE', color: '#10b981' },
+        { id: 'cat_restaurants', name: 'المطاعم والكافيهات', type: 'EXPENSE', color: '#f59e0b' },
+        { id: 'cat_fuel', name: 'المواصلات والوقود', type: 'EXPENSE', color: '#3b82f6' },
+        { id: 'cat_rent', name: 'الإيجار والسكن', type: 'EXPENSE', color: '#8b5cf6' },
+        { id: 'cat_bills', name: 'الفواتير والخدمات', type: 'EXPENSE', color: '#ec4899' },
+        { id: 'cat_shopping', name: 'التسوق والملابس', type: 'EXPENSE', color: '#06b6d4' },
+        { id: 'cat_health', name: 'الرعاية الصحية', type: 'EXPENSE', color: '#ef4444' },
+        { id: 'cat_salary', name: 'راتب شهري', type: 'INCOME', color: '#10b981' },
+        { id: 'cat_dividends', name: 'توزيعات أرباح أسهم', type: 'INCOME', color: '#8b5cf6' }
+      ],
+      salaryCycles: [
+        {
+          id: 'sc_current', name: 'دورة راتب يناير / فبراير 2025', salaryAmount: 25000.0, currency: 'SAR', payDay: 27,
+          startDate: '2025-01-27', endDate: '2025-02-26', carryForwardAmount: 4200.0, status: 'ACTIVE', note: 'الدورة النشطة الحالية'
+        }
+      ],
+      transactions: [
+        { id: 'tx_1', date: '2025-01-27T09:00:00.000Z', amount: 25000.0, currency: 'SAR', type: 'INCOME', description: 'إيداع الراتب الشهري', categoryId: 'cat_salary', accountId: 'acc_saudi_bank' },
+        { id: 'tx_2', date: '2025-01-28T14:30:00.000Z', amount: 450.0, currency: 'SAR', type: 'EXPENSE', description: 'مشتريات سوبرماركت الدانوب', categoryId: 'cat_groceries', accountId: 'acc_saudi_bank' },
+        { id: 'tx_3', date: '2025-01-29T20:15:00.000Z', amount: 180.0, currency: 'SAR', type: 'EXPENSE', description: 'عشاء مع العائلة في البيك', categoryId: 'cat_restaurants', accountId: 'acc_saudi_wallet' },
+        { id: 'tx_4', date: '2025-01-30T10:00:00.000Z', amount: 160.0, currency: 'SAR', type: 'EXPENSE', description: 'تعبئة بنزين للسيارة', categoryId: 'cat_fuel', accountId: 'acc_saudi_bank' },
+        { id: 'tx_5', date: '2025-02-01T12:00:00.000Z', amount: 3500.0, currency: 'SAR', type: 'EXPENSE', description: 'دفعة إيجار الشقة الشهري', categoryId: 'cat_rent', accountId: 'acc_saudi_bank' }
+      ],
+      obligations: [
+        {
+          id: 'ob_car', title: 'قسط تمويل السيارة - الراجحي', totalAmount: 96000.0, monthlyPayment: 2000.0, startDate: '2024-01-01', endDate: '2027-12-31', dueDate: 5, category: 'تمويل سيارات', provider: 'مصرف الراجحي', accountId: 'acc_saudi_bank',
+          payments: [{ id: 'pay_car_1', amount: 2000.0, dueDate: '2025-02-05', status: 'PENDING' }]
+        },
+        {
+          id: 'ob_phone', title: 'قسط آيفون 16 برو - جرير (تابي)', totalAmount: 4800.0, monthlyPayment: 1200.0, startDate: '2024-10-01', endDate: '2025-02-01', dueDate: 15, category: 'أجهزة وإلكترونيات', provider: 'مكتبة جرير / تابي', accountId: 'acc_saudi_bank',
+          payments: [{ id: 'pay_phone_1', amount: 1200.0, dueDate: '2025-02-15', status: 'PENDING' }]
+        }
+      ],
+      stocks: [
+        { id: 'st_comi', symbol: 'COMI', companyName: 'البنك التجاري الدولي (CIB)', market: 'EGX', currentPrice: 84.5, currency: 'EGP', lastPriceUpdate: '2025-01-30T10:00:00.000Z' },
+        { id: 'st_east', symbol: 'EAST', companyName: 'الشرقية - إيسترن كومباني', market: 'EGX', currentPrice: 27.2, currency: 'EGP', lastPriceUpdate: '2025-01-30T10:00:00.000Z' },
+        { id: 'st_abuk', symbol: 'ABUK', companyName: 'أبو قير للأسمدة والصناعات الكيماوية', market: 'EGX', currentPrice: 62.0, currency: 'EGP', lastPriceUpdate: '2025-01-30T10:00:00.000Z' }
+      ],
+      portfolioTrades: [
+        { id: 'pt_1', stockId: 'st_comi', accountId: 'acc_thndr', type: 'BUY', quantity: 1000, unitPrice: 75.0, fee: 150.0, totalAmount: 75150.0, currency: 'EGP', date: '2024-06-10' },
+        { id: 'pt_2', stockId: 'st_east', accountId: 'acc_thndr', type: 'BUY', quantity: 2000, unitPrice: 24.0, fee: 96.0, totalAmount: 48096.0, currency: 'EGP', date: '2024-08-15' },
+        { id: 'pt_3', stockId: 'st_abuk', accountId: 'acc_thndr', type: 'BUY', quantity: 800, unitPrice: 58.0, fee: 92.8, totalAmount: 46492.8, currency: 'EGP', date: '2024-09-01' },
+        { id: 'pt_4', stockId: 'st_comi', accountId: 'acc_egypt_bank', type: 'DIVIDEND', quantity: 1000, unitPrice: 2.5, fee: 0, totalAmount: 2500.0, currency: 'EGP', date: '2024-11-01' }
+      ],
+      goals: [
+        { id: 'goal_1', title: 'صندوق الطوارئ (6 أشهر)', targetAmount: 60000.0, currentAmount: 35000.0, type: 'EMERGENCY_FUND', currency: 'SAR' },
+        { id: 'goal_2', title: 'ميزانية الأغذية الشهري', targetAmount: 2500.0, currentAmount: 450.0, type: 'CATEGORY_BUDGET', currency: 'SAR', categoryId: 'cat_groceries' }
+      ]
+    };
+
+    // CLEAN FIRST TIME SETUP STORE
+    const CLEAN_START_STORE = {
+      settings: { currencyRateSAR_EGP: 13.0 },
+      accounts: [
+        { id: 'acc_saudi_main', name: 'الحساب الجاري الرئيسي (السعودية)', type: 'SAUDI_BANK', balance: 0.0, currency: 'SAR' },
+        { id: 'acc_saudi_wallet', name: 'المحفظة النقدية الكاش', type: 'CASH', balance: 0.0, currency: 'SAR' }
+      ],
+      categories: DEMO_STORE.categories,
+      salaryCycles: [],
+      transactions: [],
+      obligations: [],
+      stocks: [],
+      portfolioTrades: [],
+      goals: []
+    };
+
+    const STORAGE_KEY = 'my_finance_dashboard_db_v3';
+
+    function getStore() {
+      const data = localStorage.getItem(STORAGE_KEY);
+      if (!data) { saveStore(CLEAN_START_STORE); return CLEAN_START_STORE; }
+      try { return JSON.parse(data); } catch (e) { return CLEAN_START_STORE; }
+    }
+
+    function saveStore(store) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+    }
+
+    function resetStore() {
+      if (confirm('هل أنت أثق من إعادة ضبط جميع البيانات والعودة للبيانات الأولية؟')) {
+        saveStore(CLEAN_START_STORE);
+        location.reload();
+      }
+    }
+
+    function formatMoney(amount, currency = 'SAR', decimals = 2) {
+      const num = Number(amount || 0);
+      const symbolMap = { SAR: 'ر.س', EGP: 'ج.م', USD: '$' };
+      const formattedNum = num.toLocaleString('ar-SA', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+      return `${formattedNum} ${symbolMap[currency] || currency}`;
+    }
+
+    let store = getStore();
+    let engine = new FinancialEngine(store);
+    let currentTab = 'dashboard';
+
+    const TABS = [
+      { id: 'dashboard', label: 'اللوحة الرئيسية', icon: '📊', subtitle: 'صافي الثروة، السيولة، والميزانية الدورية' },
+      { id: 'salary', label: 'إدارة الراتب والدخل', icon: '💼', subtitle: 'تحديد دورات الراتب، الترحيل، والتحكم بالدخل' },
+      { id: 'expenses', label: 'المصاريف والمعاملات', icon: '🧾', subtitle: 'تسجيل المصاريف اليومية وتصدير كشوف الحسابات' },
+      { id: 'installments', label: 'الأقساط والالتزامات', icon: '📅', subtitle: 'جدولة الالتزامات والتسديد وإلغاء التسديد' },
+      { id: 'investments', label: 'محفظة الاستثمار (EGX)', icon: '📈', subtitle: 'تداول الأسهم، متوسط التكلفة، والأرباح' },
+      { id: 'accounts', label: 'الحسابات والتحويلات', icon: '💳', subtitle: 'إدارة البنوك، المحافظ، والتحويل متعدد العملات' },
+      { id: 'budgets', label: 'الميزانيات والأهداف', icon: '🎯', subtitle: 'حدود الأفكار والصناديق التوفيرية' },
+      { id: 'reports', label: 'التقارير والتحليلات', icon: '📉', subtitle: 'كشوف حساسة تفاعلية وتصدير CSV' },
+      { id: 'settings', label: 'النسخ الاحتياطي والإعدادات', icon: '⚙️', subtitle: 'استيراد/تصدير JSON وإدارة وضع الديمو' }
+    ];
+
+    function initApp() {
+      renderSidebarNav();
+      renderActiveTab();
+      updateHeaderBadges();
+    }
+
+    function switchTab(tabId) {
+      currentTab = tabId;
+      renderSidebarNav();
+      renderActiveTab();
+      const tabInfo = TABS.find(t => t.id === tabId);
+      if (tabInfo) {
+        document.getElementById('tabIcon').innerText = tabInfo.icon;
+        document.getElementById('tabTitle').innerText = tabInfo.label;
+        document.getElementById('tabSubtitle').innerText = tabInfo.subtitle;
+      }
+    }
+
+    function renderSidebarNav() {
+      const navEl = document.getElementById('sidebarNav');
+      navEl.innerHTML = TABS.map(t => {
+        const isActive = t.id === currentTab;
+        return `
+          <button onclick="switchTab('${t.id}')" style="width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 0.625rem 0.75rem; border-radius: 0.75rem; font-size: 0.8125rem; font-weight: 600; cursor: pointer; transition: all 0.2s; border: none; ${
+            isActive ? 'background-color: var(--bg-slate-800); color: var(--emerald-500); border-right: 4px solid var(--emerald-500); font-weight: 700;' : 'background: none; color: var(--text-slate-400);'
+          }">
+            <div style="display: flex; align-items: center; gap: 0.625rem;">
+              <span>${t.icon}</span>
+              <span>${t.label}</span>
+            </div>
+            ${isActive ? '◀' : ''}
+          </button>
+        `;
+      }).join('');
+    }
+
+    function updateHeaderBadges() {
+      const rate = engine.getRate();
+      document.getElementById('rateBadge').innerText = `1 ر.س = ${rate} ج.م`;
+    }
+
+    function renderActiveTab() {
+      const container = document.getElementById('viewContainer');
+      store = getStore();
+      engine = new FinancialEngine(store);
+
+      if (currentTab === 'dashboard') renderDashboard(container);
+      else if (currentTab === 'salary') renderSalaryView(container);
+      else if (currentTab === 'expenses') renderExpensesView(container);
+      else if (currentTab === 'installments') renderInstallmentsView(container);
+      else if (currentTab === 'investments') renderPortfolioView(container);
+      else if (currentTab === 'accounts') renderAccountsView(container);
+      else if (currentTab === 'budgets') renderBudgetsView(container);
+      else if (currentTab === 'reports') renderReportsView(container);
+      else if (currentTab === 'settings') renderSettingsView(container);
+    }
+
+    // 1. DASHBOARD
+    function renderDashboard(container) {
+      const netWorth = engine.calculateNetWorth();
+      const salarySummary = engine.calculateSalaryCycleSummary();
+
+      container.innerHTML = `
+        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+          <div class="grid-4">
+            <div class="card">
+              <div style="font-size: 0.75rem; color: var(--text-slate-400); margin-bottom: 0.25rem; display: flex; justify-content: space-between;">
+                <span>إجمالي الثروة الصافية (Net Worth)</span>
+                <span>💎</span>
+              </div>
+              <div style="font-size: 1.5rem; font-weight: 900; color: #fff;">${formatMoney(netWorth.netWorthSAR, 'SAR')}</div>
+              <div style="font-size: 0.6875rem; color: var(--text-slate-400); margin-top: 0.25rem;">الأصول (${formatMoney(netWorth.totalAssetsSAR, 'SAR')}) - الالتزامات (${formatMoney(netWorth.totalLiabilitiesSAR, 'SAR')})</div>
+            </div>
+
+            <div class="card">
+              <div style="font-size: 0.75rem; color: var(--text-slate-400); margin-bottom: 0.25rem; display: flex; justify-content: space-between;">
+                <span>السيولة النقدية المتاحة (الكاش)</span>
+                <span>💵</span>
+              </div>
+              <div style="font-size: 1.5rem; font-weight: 900; color: var(--teal-400);">${formatMoney(netWorth.totalCashSAR, 'SAR')}</div>
+              <div style="font-size: 0.6875rem; color: var(--text-slate-400); margin-top: 0.25rem;">+ ${formatMoney(netWorth.totalCashEGP, 'EGP')} للبنوك المصرية</div>
+            </div>
+
+            <div class="card">
+              <div style="font-size: 0.75rem; color: var(--text-slate-400); margin-bottom: 0.25rem; display: flex; justify-content: space-between;">
+                <span>المتبقي من ميزانية الراتب</span>
+                <span>💰</span>
+              </div>
+              <div style="font-size: 1.5rem; font-weight: 900; color: var(--amber-400);">${formatMoney(salarySummary.remainingSalaryBudget, 'SAR')}</div>
+              <div style="font-size: 0.6875rem; color: var(--text-slate-400); margin-top: 0.25rem;">صرف ${formatMoney(salarySummary.cycleExpenses, 'SAR')} في هذه الدورة</div>
+            </div>
+
+            <div class="card">
+              <div style="font-size: 0.75rem; color: var(--text-slate-400); margin-bottom: 0.25rem; display: flex; justify-content: space-between;">
+                <span>أسهم البورصة المصرية (EGX)</span>
+                <span>📈</span>
+              </div>
+              <div style="font-size: 1.5rem; font-weight: 900; color: #fff;">${formatMoney(netWorth.portfolioValueEGP, 'EGP')}</div>
+              <div style="font-size: 0.6875rem; color: var(--text-slate-400); margin-top: 0.25rem;">تساوي تقريباً ${formatMoney(netWorth.portfolioValueSAR, 'SAR')}</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3 style="font-size: 1rem; font-weight: 700; color: #fff; margin-bottom: 1rem;">تفاصيل الإنفاق حسب التصنيف خلال دورة الراتب النشطة</h3>
+            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+              ${Object.entries(salarySummary.categoryBreakdown).map(([cat, amt]) => {
+                const pct = Math.min(100, Math.round((amt / (salarySummary.cycleExpenses || 1)) * 100));
+                return `
+                  <div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 0.25rem;">
+                      <span style="color: var(--text-slate-300); font-weight: 600;">${cat}</span>
+                      <span style="color: var(--emerald-500); font-weight: 700;">${formatMoney(amt, 'SAR')} (${pct}%)</span>
+                    </div>
+                    <div style="width: 100%; height: 0.5rem; background-color: var(--bg-slate-800); border-radius: 9999px; overflow: hidden;">
+                      <div style="height: 100%; background-color: var(--emerald-500); border-radius: 9999px; width: ${pct}%;"></div>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+              ${Object.keys(salarySummary.categoryBreakdown).length === 0 ? '<p style="font-size: 0.75rem; color: var(--text-slate-500);">لا توجد مصاريف مسجلة في هذه الدورة حتى الآن.</p>' : ''}
+            </div>
+          </div>
+
+          <div class="card">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+              <h3 style="font-size: 1rem; font-weight: 700; color: #fff;">آخر المعاملات المالية</h3>
+              <button onclick="switchTab('expenses')" style="font-size: 0.75rem; color: var(--emerald-500); background: none; border: none; cursor: pointer; font-weight: 600;">عرض كافة المعاملات ←</button>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+              ${store.transactions.slice(-5).reverse().map(tx => {
+                const acc = store.accounts.find(a => a.id === tx.accountId);
+                return `
+                  <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem; border-radius: 0.75rem; background-color: rgba(30,41,59,0.4);">
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                      <div style="width: 2rem; height: 2rem; border-radius: 0.5rem; font-weight: 900; font-size: 0.875rem; display: flex; align-items: center; justify-content: center; ${
+                        tx.type === 'EXPENSE' ? 'background-color: rgba(239,68,68,0.15); color: var(--red-400);' : 'background-color: rgba(16,185,129,0.15); color: var(--emerald-500);'
+                      }">
+                        ${tx.type === 'EXPENSE' ? '-' : '+'}
+                      </div>
+                      <div>
+                        <div style="font-size: 0.875rem; font-weight: 700; color: #fff;">${tx.description || 'معاملة'}</div>
+                        <div style="font-size: 0.6875rem; color: var(--text-slate-400);">${new Date(tx.date).toLocaleDateString('ar-SA')} • ${acc ? acc.name : ''}</div>
+                      </div>
+                    </div>
+                    <div style="font-size: 0.875rem; font-weight: 900; color: ${tx.type === 'EXPENSE' ? 'var(--red-400)' : 'var(--emerald-500)'};">
+                      ${tx.type === 'EXPENSE' ? '-' : '+'}${formatMoney(tx.amount, tx.currency)}
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // 2. SALARY
+    function renderSalaryView(container) {
+      const active = engine.getActiveSalaryCycle() || { salaryAmount: 0, carryForwardAmount: 0, payDay: 27, startDate: '', endDate: '' };
+      const summary = engine.calculateSalaryCycleSummary();
+
+      container.innerHTML = `
+        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+          <div class="card">
+            <h3 style="font-size: 1.125rem; font-weight: 700; color: #fff; margin-bottom: 0.5rem;">دورة الراتب والدخل النشطة</h3>
+            <div class="grid-3" style="margin-top: 1rem;">
+              <div style="background-color: var(--bg-slate-950); padding: 1rem; border-radius: 0.75rem; border: 1px solid var(--border-slate-800);">
+                <div style="font-size: 0.75rem; color: var(--text-slate-400);">الراتب الأساسي</div>
+                <div style="font-size: 1.25rem; font-weight: 700; color: var(--emerald-500);">${formatMoney(summary.salaryAmount, 'SAR')}</div>
+              </div>
+              <div style="background-color: var(--bg-slate-950); padding: 1rem; border-radius: 0.75rem; border: 1px solid var(--border-slate-800);">
+                <div style="font-size: 0.75rem; color: var(--text-slate-400);">مصاريف الدورة الفعلية</div>
+                <div style="font-size: 1.25rem; font-weight: 700; color: var(--red-400);">${formatMoney(summary.cycleExpenses, 'SAR')}</div>
+              </div>
+              <div style="background-color: var(--bg-slate-950); padding: 1rem; border-radius: 0.75rem; border: 1px solid var(--border-slate-800);">
+                <div style="font-size: 0.75rem; color: var(--text-slate-400);">المتبقي من الميزانية</div>
+                <div style="font-size: 1.25rem; font-weight: 700; color: var(--amber-400);">${formatMoney(summary.remainingSalaryBudget, 'SAR')}</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3 style="font-size: 1rem; font-weight: 700; color: #fff; margin-bottom: 1rem;">تحديث إعدادات دورة الراتب والتاريخ</h3>
+            <form onsubmit="handleSalaryUpdate(event)" style="display: flex; flex-direction: column; gap: 1rem;">
+              <div class="grid-2">
+                <div>
+                  <label style="display: block; font-size: 0.75rem; color: var(--text-slate-300); margin-bottom: 0.25rem;">اسم/عنوان الدورة</label>
+                  <input type="text" id="salName" value="${active.name || ''}" class="form-control">
+                </div>
+                <div>
+                  <label style="display: block; font-size: 0.75rem; color: var(--text-slate-300); margin-bottom: 0.25rem;">مبلغ الراتب الشهري (SAR)</label>
+                  <input type="number" id="salAmount" value="${active.salaryAmount || 0}" class="form-control">
+                </div>
+                <div>
+                  <label style="display: block; font-size: 0.75rem; color: var(--text-slate-300); margin-bottom: 0.25rem;">تاريخ بداية الدورة</label>
+                  <input type="date" id="salStartDate" value="${active.startDate || ''}" class="form-control">
+                </div>
+                <div>
+                  <label style="display: block; font-size: 0.75rem; color: var(--text-slate-300); margin-bottom: 0.25rem;">تاريخ نهاية الدورة</label>
+                  <input type="date" id="salEndDate" value="${active.endDate || ''}" class="form-control">
+                </div>
+              </div>
+              <div>
+                <button type="submit" class="btn btn-primary" style="font-size: 0.875rem;">حفظ إعدادات الراتب والدورة</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      `;
+    }
+
+    function handleSalaryUpdate(e) {
+      e.preventDefault();
+      let active = engine.getActiveSalaryCycle();
+      if (!active) {
+        active = { id: 'sc_' + Date.now(), status: 'ACTIVE' };
+        store.salaryCycles.push(active);
+      }
+      active.name = document.getElementById('salName').value;
+      const salaryInput = Number(document.getElementById('salAmount').value);
+      if (!Number.isFinite(salaryInput) || salaryInput < 0) { alert('قيمة الراتب غير صالحة'); return; }
+      active.salaryAmount = salaryInput;
+      active.startDate = document.getElementById('salStartDate').value;
+      active.endDate = document.getElementById('salEndDate').value;
+      saveStore(store);
+      alert('تم تحديث دورة الراتب بنجاح!');
+      renderActiveTab();
+    }
+
+    // 3. EXPENSES VIEW
+    function renderExpensesView(container) {
+      container.innerHTML = `
+        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+          <div class="card">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+              <h3 style="font-size: 1.125rem; font-weight: 700; color: #fff;">جدول جميع المعاملات والمصاريف</h3>
+              <button onclick="openModal('quickExpenseModal')" class="btn btn-primary" style="font-size: 0.75rem;">+ إضافة مصروف</button>
+            </div>
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>التاريخ</th>
+                    <th>الوصف</th>
+                    <th>الحساب</th>
+                    <th>المبلغ</th>
+                    <th>إجراءات</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${store.transactions.map(tx => {
+                    const acc = store.accounts.find(a => a.id === tx.accountId);
+                    return `
+                      <tr>
+                        <td style="color: var(--text-slate-400);">${new Date(tx.date).toLocaleDateString('ar-SA')}</td>
+                        <td style="font-weight: 700; color: #fff;">${tx.description || ''}</td>
+                        <td>${acc ? acc.name : ''}</td>
+                        <td style="font-weight: 900; color: ${tx.type === 'EXPENSE' ? 'var(--red-400)' : 'var(--emerald-500)'};">
+                          ${formatMoney(tx.amount, tx.currency)}
+                        </td>
+                        <td>
+                          <button onclick="handleDeleteTransactionAction('${tx.id}')" style="color: var(--red-400); background: none; border: none; cursor: pointer; font-weight: 700;">حذف وتعديل الرصيد</button>
+                        </td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function handleDeleteTransactionAction(txId) {
+      if (confirm('هل أنت أثق من حذف هذه المعاملة واسترجاع قيمتها الحسابية؟')) {
+        try {
+          engine.deleteTransaction(txId);
+          saveStore(store);
+          renderActiveTab();
+        } catch (err) {
+          alert('خطأ: ' + err.message);
+        }
+      }
+    }
+
+    // 4. INSTALLMENTS VIEW
+    function renderInstallmentsView(container) {
+      container.innerHTML = `
+        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="font-size: 1.125rem; font-weight: 700; color: #fff;">الأقساط والالتزامات الماليّة</h3>
+            <button onclick="openModal('addObligationModal')" class="btn btn-primary" style="font-size: 0.75rem;">+ إضافة التزام / قسط جديد</button>
+          </div>
+
+          <div class="grid-2">
+            ${store.obligations.map(ob => `
+              <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                  <div>
+                    <h3 style="font-size: 1rem; font-weight: 700; color: #fff;">${ob.title}</h3>
+                    <p style="font-size: 0.75rem; color: var(--text-slate-400); margin-bottom: 0.5rem;">الجهة: ${ob.provider || 'غير محدد'}</p>
+                  </div>
+                  <button onclick="deleteObligation('${ob.id}')" style="background: none; border: none; color: var(--red-400); cursor: pointer; font-size: 0.75rem;">حذف</button>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.875rem; margin-bottom: 0.5rem;">
+                  <span>القسط الشهري:</span>
+                  <span style="font-weight: 900; color: var(--amber-400);">${formatMoney(ob.monthlyPayment, ob.currency || 'SAR')}</span>
+                </div>
+                <div style="border-top: 1px solid var(--border-slate-800); padding-top: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem; max-height: 12rem; overflow-y: auto;">
+                  ${ob.payments.map(p => `
+                    <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.75rem; padding: 0.5rem; background-color: rgba(30,41,59,0.4); border-radius: 0.5rem;">
+                      <span>استحقاق: ${p.dueDate} (${formatMoney(p.amount, ob.currency || 'SAR')})</span>
+                      ${p.status === 'PAID' 
+                        ? `<button onclick="handleReverseInstallmentAction('${ob.id}', '${p.id}')" class="btn btn-secondary" style="font-size: 0.6875rem; padding: 0.25rem 0.5rem; color: var(--amber-400);">إلغاء التسديد (استرجاع)</button>`
+                        : `<button onclick="handlePayInstallmentAction('${ob.id}', '${p.id}')" class="btn btn-primary" style="font-size: 0.6875rem; padding: 0.25rem 0.5rem;">تسديد الآن</button>`
+                      }
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    function handlePayInstallmentAction(obId, payId) {
+      try {
+        engine.payInstallment(obId, payId);
+        saveStore(store);
+        renderActiveTab();
+      } catch (err) {
+        alert('خطأ: ' + err.message);
+      }
+    }
+
+    function handleReverseInstallmentAction(obId, payId) {
+      if (confirm('هل أنت أثق من إلغاء تسديد هذا القسط وإعادة الخصم إلى حسابك؟')) {
+        try {
+          engine.reverseInstallmentPayment(obId, payId);
+          saveStore(store);
+          renderActiveTab();
+        } catch (err) {
+          alert('خطأ: ' + err.message);
+        }
+      }
+    }
+
+    function deleteObligation(obId) {
+      if (confirm('هل أنت أثق من حذف هذا الالتزام ومحوه من الجدول؟')) {
+        store.obligations = store.obligations.filter(o => o.id !== obId);
+        saveStore(store);
+        renderActiveTab();
+      }
+    }
+
+    // 5. PORTFOLIO VIEW
+    function renderPortfolioView(container) {
+      const summary = engine.calculatePortfolioSummary();
+      container.innerHTML = `
+        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+            <h3 style="font-size: 1.125rem; font-weight: 700; color: #fff;">محفظة أسهم البورصة المصرية والسعودية</h3>
+            <div style="display: flex; gap: 0.5rem;">
+              <button onclick="openModal('addStockModal')" class="btn btn-secondary" style="font-size: 0.75rem;">+ إضافة سهم للقائمة</button>
+              <button onclick="openModal('tradeModal')" class="btn btn-primary" style="font-size: 0.75rem;">+ تسجيل صفقة أسهم / كوبون</button>
+            </div>
+          </div>
+
+          <div class="grid-3">
+            <div class="card">
+              <div style="font-size: 0.75rem; color: var(--text-slate-400);">قيمة المحفظة السوقية (EGP)</div>
+              <div style="font-size: 1.5rem; font-weight: 900; color: #fff;">${formatMoney(summary.totalValueEGP, 'EGP')}</div>
+            </div>
+            <div class="card">
+              <div style="font-size: 0.75rem; color: var(--text-slate-400);">الأرباح غير المحققة</div>
+              <div style="font-size: 1.5rem; font-weight: 900; color: ${summary.totalUnrealizedEGP >= 0 ? 'var(--emerald-500)' : 'var(--red-400)'};">
+                ${formatMoney(summary.totalUnrealizedEGP, 'EGP')}
+              </div>
+            </div>
+            <div class="card">
+              <div style="font-size: 0.75rem; color: var(--text-slate-400);">الأرباح الكوبونات الموزعة</div>
+              <div style="font-size: 1.5rem; font-weight: 900; color: var(--amber-400);">${formatMoney(summary.totalDividendsEGP, 'EGP')}</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3 style="font-size: 1rem; font-weight: 700; color: #fff; margin-bottom: 1rem;">ملكية الأسهم الحالية</h3>
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>رمز السهم</th>
+                    <th>الكمية</th>
+                    <th>متوسط التكلفة</th>
+                    <th>السعر الحالي</th>
+                    <th>القيمة السوقية</th>
+                    <th>الأرباح</th>
+                    <th>إجراءات</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${summary.holdings.map(h => `
+                    <tr>
+                      <td style="font-weight: 700; color: #fff;">${h.stock.symbol} - ${h.stock.companyName}</td>
+                      <td style="font-weight: 600;">${h.quantity} سهم</td>
+                      <td>${formatMoney(h.avgCost, h.stock.currency)}</td>
+                      <td>${formatMoney(h.stock.currentPrice, h.stock.currency)}</td>
+                      <td style="font-weight: 900; color: #fff;">${formatMoney(h.currentValue, h.stock.currency)}</td>
+                      <td style="font-weight: 900; color: ${h.unrealizedPL >= 0 ? 'var(--emerald-500)' : 'var(--red-400)'};">
+                        ${formatMoney(h.unrealizedPL, h.stock.currency)}
+                      </td>
+                      <td>
+                        <button onclick="updateStockPricePrompt('${h.stock.id}', ${h.stock.currentPrice})" style="background: none; border: none; color: var(--emerald-500); cursor: pointer; font-weight: 700;">تحديث السعر</button>
+                      </td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // 6. ACCOUNTS
+    function renderAccountsView(container) {
+      container.innerHTML = `
+        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="font-size: 1.125rem; font-weight: 700; color: #fff;">الحسابات المالية والبنوك</h3>
+            <div style="display: flex; gap: 0.5rem;">
+              <button onclick="openModal('addAccountModal')" class="btn btn-secondary" style="font-size: 0.75rem;">+ حساب جديد</button>
+              <button onclick="openModal('transferModal')" class="btn btn-primary" style="font-size: 0.75rem;">⇆ تحويل بين الحسابات</button>
+            </div>
+          </div>
+          <div class="grid-3">
+            ${store.accounts.map(acc => `
+              <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                  <div style="font-size: 0.75rem; color: var(--text-slate-400); margin-bottom: 0.25rem;">${acc.type}</div>
+                  <button onclick="handleDeleteAccountAction('${acc.id}')" style="background: none; border: none; color: var(--red-400); cursor: pointer; font-size: 0.75rem;">حذف</button>
+                </div>
+                <div style="font-size: 1rem; font-weight: 700; color: #fff;">${acc.name}</div>
+                <div style="font-size: 1.5rem; font-weight: 900; color: var(--emerald-500); margin-top: 0.5rem;">${formatMoney(acc.balance, acc.currency)}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    function handleDeleteAccountAction(accId) {
+      if (confirm('هل أنت أثق من حذف هذا الحساب المالي؟')) {
+        try {
+          engine.deleteAccountSafely(accId);
+          saveStore(store);
+          renderActiveTab();
+        } catch (err) {
+          alert('تعذر الحذف: ' + err.message);
+        }
+      }
+    }
+
+    // 7. BUDGETS
+    function renderBudgetsView(container) {
+      container.innerHTML = `
+        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+          <div class="card">
+            <h3 style="font-size: 1.125rem; font-weight: 700; color: #fff; margin-bottom: 1rem;">الأهداف المالية وصناديق الطوارئ</h3>
+            <div style="display: flex; flex-direction: column; gap: 1rem;">
+              ${store.goals.map(g => {
+                const pct = Math.min(100, Math.round((g.currentAmount / g.targetAmount) * 100));
+                return `
+                  <div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.875rem; font-weight: 700; margin-bottom: 0.25rem;">
+                      <span style="color: #fff;">${g.title}</span>
+                      <span style="color: var(--emerald-500);">${formatMoney(g.currentAmount, g.currency)} / ${formatMoney(g.targetAmount, g.currency)} (${pct}%)</span>
+                    </div>
+                    <div style="width: 100%; height: 0.625rem; background-color: var(--bg-slate-800); border-radius: 9999px; overflow: hidden;">
+                      <div style="height: 100%; background-color: var(--emerald-500); border-radius: 9999px; width: ${pct}%;"></div>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // 8. REPORTS
+    function renderReportsView(container) {
+      container.innerHTML = `
+        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+          <div class="card" style="text-align: center; padding: 2rem;">
+            <h3 style="font-size: 1.125rem; font-weight: 700; color: #fff; margin-bottom: 0.5rem;">تقارير كشف الحساب وتوزيع التدفقات النقديّة</h3>
+            <p style="font-size: 0.75rem; color: var(--text-slate-400); margin-bottom: 1rem;">يمكنك تصدير كشف كامل بجميع المعاملات في ملف CSV متوافق مع Excel.</p>
+            <button onclick="exportTransactionsCSV()" class="btn btn-primary" style="font-size: 0.875rem;">
+              📊 تحميل كشف الحساب التفاعلي (CSV)
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    // 9. SETTINGS & DEMO MODE
+    function renderSettingsView(container) {
+      container.innerHTML = `
+        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+          <div class="card">
+            <h3 style="font-size: 1.125rem; font-weight: 700; color: #fff; margin-bottom: 0.5rem;">إعدادات النسخ الاحتياطي وإدارة البيانات</h3>
+            <p style="font-size: 0.75rem; color: var(--text-slate-400); margin-bottom: 1.5rem;">جميع بياناتك تحفظ تلقائياً داخل متصفحك المحلي (localStorage) دون الحاجة لاتصال بالإنترنت.</p>
+
+            <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
+              <button onclick="exportDataJSON()" class="btn btn-secondary" style="color: var(--emerald-500);">
+                📥 تصدير نسخة احتياطية (JSON)
+              </button>
+
+              <label class="btn btn-secondary" style="cursor: pointer;">
+                📤 استيراد نسخة احتياطية (JSON)
+                <input type="file" accept=".json" onchange="importDataJSON(event)" style="display: none;">
+              </label>
+
+              <button onclick="loadDemoDataMode()" class="btn btn-secondary" style="color: var(--blue-400);">
+                🧪 تحميل بيانات وضع التجربة (Demo Data)
+              </button>
+
+              <button onclick="clearAllUserData()" class="btn btn-danger">
+                🗑️ البدء ببيانات فارغة ونظيفة (First Time Setup)
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // MODAL POPULATION & ACTIONS
+    function openModal(id) {
+      const m = document.getElementById(id);
+      if (m) {
+        m.classList.add('active');
+        populateModalDropdowns();
+      }
+    }
+
+    function closeModal(id) {
+      const m = document.getElementById(id);
+      if (m) m.classList.remove('active');
+    }
+
+    function populateModalDropdowns() {
+      const accSelect = document.getElementById('qeAccountId');
+      if (accSelect) accSelect.innerHTML = store.accounts.map(a => `<option value="${a.id}">${a.name} (${a.balance} ${a.currency})</option>`).join('');
+
+      const catSelect = document.getElementById('qeCategoryId');
+      if (catSelect) catSelect.innerHTML = store.categories.filter(c => c.type === 'EXPENSE').map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+
+      const trFrom = document.getElementById('trFromAccountId');
+      const trTo = document.getElementById('trToAccountId');
+      if (trFrom && trTo) {
+        const opts = store.accounts.map(a => `<option value="${a.id}">${a.name} (${a.balance} ${a.currency})</option>`).join('');
+        trFrom.innerHTML = opts; trTo.innerHTML = opts;
+      }
+
+      const stSelect = document.getElementById('tradeStockId');
+      if (stSelect) stSelect.innerHTML = store.stocks.map(s => `<option value="${s.id}">${s.symbol} - ${s.companyName}</option>`).join('');
+
+      const tradeAcc = document.getElementById('tradeAccountId');
+      if (tradeAcc) tradeAcc.innerHTML = store.accounts.map(a => `<option value="${a.id}">${a.name} (${a.balance} ${a.currency})</option>`).join('');
+
+      const obAcc = document.getElementById('obAccountId');
+      if (obAcc) obAcc.innerHTML = store.accounts.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+
+      const rateInput = document.getElementById('newRateInput');
+      if (rateInput) rateInput.value = engine.getRate();
+    }
+
+    function handleQuickExpenseSubmit(e) {
+      e.preventDefault();
+      try {
+        engine.addTransaction({
+          amount: document.getElementById('qeAmount').value,
+          currency: document.getElementById('qeCurrency').value,
+          accountId: document.getElementById('qeAccountId').value,
+          categoryId: document.getElementById('qeCategoryId').value,
+          description: document.getElementById('qeDescription').value || 'مصروف سريع',
+          type: 'EXPENSE'
+        });
+        saveStore(store);
+        closeModal('quickExpenseModal');
+        renderActiveTab();
+      } catch (err) {
+        alert('خطأ: ' + err.message);
+      }
+    }
+
+    function handleTransferSubmit(e) {
+      e.preventDefault();
+      try {
+        engine.executeTransfer(
+          document.getElementById('trFromAccountId').value,
+          document.getElementById('trToAccountId').value,
+          document.getElementById('trAmount').value,
+          document.getElementById('trNote').value
+        );
+        saveStore(store);
+        closeModal('transferModal');
+        renderActiveTab();
+      } catch (err) {
+        alert('خطأ: ' + err.message);
+      }
+    }
+
+    function handleTradeSubmit(e) {
+      e.preventDefault();
+      try {
+        engine.executeTrade({
+          stockId: document.getElementById('tradeStockId').value,
+          accountId: document.getElementById('tradeAccountId').value,
+          type: document.getElementById('tradeType').value,
+          quantity: document.getElementById('tradeQuantity').value,
+          unitPrice: document.getElementById('tradeUnitPrice').value,
+          fee: document.getElementById('tradeFee').value
+        });
+        saveStore(store);
+        closeModal('tradeModal');
+        renderActiveTab();
+      } catch (err) {
+        alert('خطأ: ' + err.message);
+      }
+    }
+
+    function handleRateSubmit(e) {
+      e.preventDefault();
+      const newRate = parseFloat(document.getElementById('newRateInput').value);
+      if (Number.isFinite(newRate) && newRate > 0) {
+        if (!store.settings) store.settings = {};
+        store.settings.currencyRateSAR_EGP = newRate;
+        saveStore(store);
+        updateHeaderBadges();
+        closeModal('rateModal');
+        renderActiveTab();
+      }
+    }
+
+    function handleAddAccountSubmit(e) {
+      e.preventDefault();
+      const name = document.getElementById('newAccName').value;
+      const type = document.getElementById('newAccType').value;
+      const balance = parseFloat(document.getElementById('newAccBalance').value || '0');
+      const currency = document.getElementById('newAccCurrency').value;
+
+      if (!name || !Number.isFinite(balance) || balance < 0) { alert('الاسم أو الرصيد غير صالح'); return; }
+
+      store.accounts.push({ id: 'acc_' + Date.now(), name, type, balance, currency });
+      saveStore(store);
+      closeModal('addAccountModal');
+      renderActiveTab();
+    }
+
+    function handleAddObligationSubmit(e) {
+      e.preventDefault();
+      try {
+        engine.generateInstallmentSchedule({
+          title: document.getElementById('obTitle').value,
+          totalAmount: document.getElementById('obTotalAmount').value,
+          monthlyPayment: document.getElementById('obMonthlyPayment').value,
+          dueDate: document.getElementById('obDueDate').value,
+          provider: document.getElementById('obProvider').value,
+          accountId: document.getElementById('obAccountId').value
+        });
+
+        saveStore(store);
+        closeModal('addObligationModal');
+        renderActiveTab();
+      } catch (err) {
+        alert('خطأ: ' + err.message);
+      }
+    }
+
+    function handleAddStockSubmit(e) {
+      e.preventDefault();
+      const symbol = document.getElementById('stSymbol').value.toUpperCase();
+      const companyName = document.getElementById('stCompanyName').value;
+      const currentPrice = parseFloat(document.getElementById('stCurrentPrice').value);
+      const market = document.getElementById('stMarket').value;
+
+      if (!symbol || !companyName || !Number.isFinite(currentPrice) || currentPrice <= 0) return;
+
+      store.stocks.push({
+        id: 'st_' + Date.now(), symbol, companyName, market, currentPrice,
+        currency: market === 'EGX' ? 'EGP' : 'SAR', lastPriceUpdate: new Date().toISOString()
+      });
+
+      saveStore(store);
+      closeModal('addStockModal');
+      renderActiveTab();
+    }
+
+    function updateStockPricePrompt(stockId, oldPrice) {
+      const val = prompt('أدخل السعر الجديد للسهم:', oldPrice);
+      if (val !== null && Number.isFinite(Number(val)) && Number(val) > 0) {
+        const stock = store.stocks.find(s => s.id === stockId);
+        if (stock) {
+          stock.currentPrice = parseFloat(val);
+          stock.lastPriceUpdate = new Date().toISOString();
+          saveStore(store);
+          renderActiveTab();
+        }
+      }
+    }
+
+    function loadDemoDataMode() {
+      if (confirm('هل تريد تحميل بيانات وضع التجربة وعرض عينات العملة والأسهم؟')) {
+        saveStore(DEMO_STORE);
+        location.reload();
+      }
+    }
+
+    function clearAllUserData() {
+      if (confirm('تنبيه: سيتم مسح جميع البيانات وحذف الحسابات لبدء حساب جديد كلياً! هل تود الاستمرار؟')) {
+        saveStore(CLEAN_START_STORE);
+        location.reload();
+      }
+    }
+
+    function exportDataJSON() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(store, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `my_finance_backup_${new Date().toISOString().slice(0, 10)}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
+    function importDataJSON(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const imported = JSON.parse(e.target.result);
+          if (FinancialEngine.validateBackupJSON(imported)) {
+            if (!confirm('سيتم استبدال جميع بياناتك الحالية بالنسخة المستوردة. تأكد من حفظ نسخة احتياطية أولاً. متابعة؟')) return;
+            saveStore(imported);
+            alert('تم استيراد النسخة الاحتياطية وتحديث كافة البيانات بنجاح!');
+            location.reload();
+          } else {
+            alert('خطأ: الملف غير صالح كنسخة مالية احتياطية');
+          }
+        } catch (err) {
+          alert('خطأ أثناء قراءة ملف النسخة الاحتياطية');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function exportTransactionsCSV() {
+      let csvContent = "\uFEFFالتاريخ,النوع,المبلغ,العملة,الحساب,الوصف\n";
+
+      store.transactions.forEach(tx => {
+        const acc = store.accounts.find(a => a.id === tx.accountId);
+        const row = [
+          new Date(tx.date).toLocaleDateString('ar-SA'),
+          tx.type === 'EXPENSE' ? 'مصروف' : tx.type === 'INCOME' ? 'دخل' : 'تحويل',
+          tx.amount,
+          tx.currency,
+          `"${acc ? acc.name : ''}"`,
+          `"${tx.description || ''}"`
+        ];
+        csvContent += row.join(",") + "\n";
+      });
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `financial_transactions_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    window.addEventListener('DOMContentLoaded', initApp);
+  </script>
+</body>
+</html>
