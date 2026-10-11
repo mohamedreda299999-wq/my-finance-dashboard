@@ -166,6 +166,7 @@
         </button>
       </div>
 
+      <div id="currentUserSidebar" style="margin:.25rem 1rem;padding:.7rem;border:1px solid #334155;border-radius:.7rem;color:#cbd5e1;font-size:.75rem;overflow-wrap:anywhere" aria-live="polite">👤 لم يتم تسجيل الدخول — البيانات محلية</div>
       <nav id="sidebarNav" style="padding: 0.5rem; display: flex; flex-direction: column; gap: 0.25rem;"></nav>
     </div>
 
@@ -1647,6 +1648,7 @@
 
             <section class="card" id="cloudPanel" style="margin-bottom:1rem;background:#102339;border:1px solid #365369">
               <h3 style="color:white;margin-bottom:.5rem">☁️ المزامنة السحابية بين الموبايل والكمبيوتر</h3>
+              <div id="currentUserCard" style="display:none;padding:.75rem;border-radius:.6rem;background:#13342d;border:1px solid #167a61;color:#ddfff4;margin-bottom:.7rem;overflow-wrap:anywhere" aria-live="polite"></div>
               <p id="cloudStatus" style="color:#a7b8ca;margin-bottom:.7rem">غير مفعّلة. قم بإعداد Firebase أولاً.</p>
               <div style="display:flex;flex-wrap:wrap;gap:.6rem;align-items:center">
                 <input id="cloudEmail" type="email" placeholder="البريد الإلكتروني" autocomplete="username" style="padding:.6rem;border-radius:.5rem;background:#1e293b;color:white;border:1px solid #64748b;max-width:240px" />
@@ -2035,6 +2037,23 @@
   (() => {
     let auth, db, user, unsubscribe, pendingTimer, loadingCloud = false, initialized = false;
     const status = msg => { const e=document.getElementById('cloudStatus');if(e)e.textContent=msg; };
+    function renderCurrentUser(u) {
+      const label=u ? (u.displayName || u.email || 'مستخدم مسجّل') : '';
+      const sidebar=document.getElementById('currentUserSidebar');
+      const card=document.getElementById('currentUserCard');
+      if(sidebar) {
+        sidebar.textContent=u ? '🟢 المستخدم الحالي: '+label : '👤 لم يتم تسجيل الدخول — البيانات محلية';
+        sidebar.title=u ? 'Firebase UID: '+u.uid : '';
+      }
+      if(card){
+        card.style.display=u?'block':'none';
+        card.textContent=u ? '✅ المستخدم الحالي: '+label+' | معرّف الحساب: '+u.uid.slice(0,8)+'…' : '';
+      }
+      const emailField=document.getElementById('cloudEmail');
+      if(emailField && u) emailField.value=u.email || '';
+      const pass=document.getElementById('cloudPassword');
+      if(pass && u)pass.value='';
+    }
     function ready() {
       if (initialized) return true;
       if (!window.FINANCE_FIREBASE_CONFIG || !window.firebase || !window.FINANCE_FIREBASE_CONFIG.apiKey || window.FINANCE_FIREBASE_CONFIG.apiKey.includes('REPLACE')) {
@@ -2043,6 +2062,7 @@
       try { firebase.initializeApp(window.FINANCE_FIREBASE_CONFIG);auth=firebase.auth();db=firebase.firestore();initialized=true;
         auth.onAuthStateChanged(async u => {
           user=u;
+          renderCurrentUser(u);
           if(unsubscribe){unsubscribe();unsubscribe=null;}
           if(!u){status('غير مسجّل دخول. البيانات الآن محلية فقط.');return;}
           status('متصل بحساب '+u.email+' — جاري تحميل البيانات');
@@ -2075,7 +2095,7 @@
         });return true;
       }catch(e){status('خطأ إعداد Firebase: '+e.message);return false;}
     }
-    window.financeCloudInitUI=()=>{ ready();if(user)status('✅ مسجّل دخول: '+user.email); };
+    window.financeCloudInitUI=()=>{ ready();renderCurrentUser(user);if(user)status('✅ مسجّل دخول: '+user.email); };
     window.financeCloudLogin=async(register)=>{
       if(!ready())return;
       const email=document.getElementById('cloudEmail')?.value?.trim();
@@ -2098,7 +2118,7 @@
       const raw=localStorage.getItem('my_finance_dashboard_db_v3');
       if(raw)window.financeCloudSave(JSON.parse(raw));
     };
-    document.addEventListener('DOMContentLoaded',()=>{ready();});
+    document.addEventListener('DOMContentLoaded',()=>{ready();renderCurrentUser(user);});
   })();
   </script>
 </body>
