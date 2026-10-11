@@ -2209,7 +2209,9 @@
     const baselineKey=uid=>'finance_cloud_baseline_'+uid;
     const setStatus=()=>{ if(!navigator.onLine) status('📴 بدون إنترنت: بياناتك محفوظة على الجهاز، والمزامنة معلّقة'); };
     window.addEventListener('offline',setStatus);
-    window.addEventListener('online',()=>{status('🌐 عاد الاتصال — جاري فحص سلامة المزامنة');if(user){subscribeCloud(user.uid);window.financeCloudSync(true);}});
+    window.addEventListener('online',()=>{status('🌐 عاد الاتصال — جاري فحص سلامة المزامنة');if(user){subscribeCloud(user.uid);setTimeout(()=>window.financeCloudSync(true),2000);}});
+    document.addEventListener('visibilitychange',()=>{if(!document.hidden&&user&&navigator.onLine&&localStorage.getItem(pendingKey)==='1')window.financeCloudSync(true);});
+    setInterval(()=>{if(user&&navigator.onLine&&localStorage.getItem(pendingKey)==='1')window.financeCloudSync(true);},20000);
 
     function renderCurrentUser(u) {
       const label=u ? (u.displayName || u.email || 'مستخدم مسجّل') : '';
@@ -2355,13 +2357,16 @@
       clearTimeout(pendingTimer);
       pendingTimer=setTimeout(()=>window.financeCloudSync(),1500);
     };
+    let syncInFlight=false;
     window.financeCloudSync=async(forceRead=false)=>{
+      if(syncInFlight)return;
       if(!user || !db){status('سجّل الدخول أولًا على الجهازين');return;}
       if(!navigator.onLine){setStatus();return;}
       const uid=user.uid;
       const doc=db.collection('users').doc(uid).collection('private').doc('finance');
       const localRaw=localStorage.getItem('my_finance_dashboard_db_v3');
       if(!localRaw)return;
+      syncInFlight=true;
       try {
         const snap=await doc.get({source:'server'});
         if(user?.uid!==uid)return;
@@ -2400,6 +2405,7 @@
         }
         status('⚠️ السحابة لا تحتوي على نسخة والجهاز يحتوي بيانات. راجع الحساب قبل الرفع.');
       }catch(e){status('تعذرت المزامنة، البيانات محفوظة على الجهاز: '+e.message);}
+      finally{syncInFlight=false;}
     };
     window.financeCloudDiagnose=async()=>{
       if(!user){alert('لم يتم تسجيل الدخول إلى Firebase على هذا الجهاز.');return;}
