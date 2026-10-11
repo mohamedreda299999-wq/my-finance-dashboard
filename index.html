@@ -1111,6 +1111,14 @@
       }
     }
 
+    function formatDateDMY(value) {
+      const raw=String(value||'').slice(0,10);
+      const match=/^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+      if(match)return match[3]+'-'+match[2]+'-'+match[1];
+      const d=new Date(value);
+      return Number.isNaN(d.getTime())?'':String(d.getDate()).padStart(2,'0')+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+d.getFullYear();
+    }
+
     function formatMoney(amount, currency = 'SAR', decimals = 2) {
       const num = Number(amount || 0);
       const symbolMap = { SAR: 'ر.س', EGP: 'ج.م', USD: '$' };
@@ -1290,7 +1298,7 @@
                       </div>
                       <div>
                         <div style="font-size: 0.875rem; font-weight: 700; color: #fff;">${tx.description || 'معاملة'}</div>
-                        <div style="font-size: 0.6875rem; color: var(--text-slate-400);">${new Date(tx.date).toLocaleDateString('ar-SA')} • ${acc ? acc.name : ''}</div>
+                        <div style="font-size: 0.6875rem; color: var(--text-slate-400);">${formatDateDMY(tx.date)} • ${acc ? acc.name : ''}</div>
                       </div>
                     </div>
                     <div style="font-size: 0.875rem; font-weight: 900; color: ${tx.type === 'EXPENSE' ? 'var(--red-400)' : 'var(--emerald-500)'};">
@@ -1452,11 +1460,11 @@
                     const acc = store.accounts.find(a => a.id === tx.accountId);
                     return `
                       <tr>
-                        <td style="color: var(--text-slate-400);">${new Date(tx.date).toLocaleDateString('ar-SA')}</td>
+                        <td style="color: var(--text-slate-400);">${formatDateDMY(tx.date)}</td>
                         <td style="font-weight: 700; color: #fff;">${tx.description || ''}</td>
                         <td>${acc ? acc.name : ''}</td>
                         <td style="font-weight: 900; color: ${tx.type === 'EXPENSE' ? 'var(--red-400)' : 'var(--emerald-500)'};">
-                          ${formatMoney(tx.amount, tx.currency)}
+                          ${formatMoney(engine.convertHistorical(tx,'SAR'),'SAR')}<div style="font-size:.73rem;font-weight:600;color:#a5b4fc;margin-top:.22rem">≈ ${formatMoney(engine.convertHistorical(tx,'EGP'),'EGP')}</div>
                         </td>
                         <td>
                           <div style="display:flex;gap:.55rem;align-items:center;flex-wrap:wrap">
@@ -1477,9 +1485,9 @@
                   <div style="display:flex;justify-content:space-between;gap:.6rem;align-items:start">
                     <div style="min-width:0">
                       <div style="font-weight:750;color:white;overflow-wrap:anywhere">${safeHTML(tx.description||'معاملة مالية')}</div>
-                      <div style="font-size:.7rem;color:#94a3b8;margin-top:.3rem">${new Date(tx.date).toLocaleDateString('ar-SA')} · ${safeHTML(acc?.name||'حساب غير معروف')}</div>
+                      <div style="font-size:.7rem;color:#94a3b8;margin-top:.3rem">${formatDateDMY(tx.date)} · ${safeHTML(acc?.name||'حساب غير معروف')}</div>
                     </div>
-                    <div style="font-weight:800;white-space:nowrap;color:${tx.type==='EXPENSE'?'#f87171':'#10b981'}">${formatMoney(tx.amount,tx.currency)}</div>
+                    <div style="font-weight:800;white-space:nowrap;color:${tx.type==='EXPENSE'?'#f87171':'#10b981'}">${formatMoney(engine.convertHistorical(tx,'SAR'),'SAR')}<div style="font-size:.73rem;font-weight:600;color:#a5b4fc;margin-top:.22rem">≈ ${formatMoney(engine.convertHistorical(tx,'EGP'),'EGP')}</div></div>
                   </div>
                   <div class="actions">
                     ${tx.type==='EXPENSE'?'<button class="btn btn-secondary" onclick="editExpenseTransaction(\''+tx.id+'\')">✏️ تعديل</button>':''}
@@ -2179,7 +2187,7 @@
       store.transactions.forEach(tx => {
         const acc = store.accounts.find(a => a.id === tx.accountId);
         const row = [
-          new Date(tx.date).toLocaleDateString('ar-SA'),
+          formatDateDMY(tx.date),
           tx.type === 'EXPENSE' ? 'مصروف' : tx.type === 'INCOME' ? 'دخل' : 'تحويل',
           tx.amount,
           tx.currency,
