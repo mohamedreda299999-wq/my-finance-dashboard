@@ -534,7 +534,7 @@
 
         const totalLiquidCashSAR = totalCashSAR + (totalCashEGP / rate);
         const portfolio = this.calculatePortfolioSummary();
-        const portfolioValueSAR = portfolio.totalValueSAR;
+        const portfolioValueSAR = 0; // Investments appear separately in EGP, without FX conversion
 
         let totalLiabilitiesSAR = 0;
         this.store.obligations.forEach(ob => {
@@ -1005,15 +1005,17 @@
       obligations: [],
       stocks: [],
       portfolioTrades: [],
-      goals: []
+      goals: [],
+      simpleInvestments: { stocks: [], gold: [] }
     };
 
     const STORAGE_KEY = 'my_finance_dashboard_db_v3';
 
     function getStore() {
       const data = localStorage.getItem(STORAGE_KEY);
-      if (!data) { saveStore(CLEAN_START_STORE); return CLEAN_START_STORE; }
-      try { return JSON.parse(data); } catch (e) { return CLEAN_START_STORE; }
+      if (!data) { const fresh = structuredClone(CLEAN_START_STORE); saveStore(fresh); return fresh; }
+      try { const loaded = JSON.parse(data); loaded.simpleInvestments ||= { stocks: [], gold: [] }; loaded.categories ||= []; return loaded; }
+      catch (e) { return structuredClone(CLEAN_START_STORE); }
     }
 
     function saveStore(store) {
@@ -1043,7 +1045,7 @@
       { id: 'salary', label: 'إدارة الراتب والدخل', icon: '💼', subtitle: 'تحديد دورات الراتب، الترحيل، والتحكم بالدخل' },
       { id: 'expenses', label: 'المصاريف والمعاملات', icon: '🧾', subtitle: 'تسجيل المصاريف اليومية وتصدير كشوف الحسابات' },
       { id: 'installments', label: 'الأقساط والالتزامات', icon: '📅', subtitle: 'جدولة الالتزامات والتسديد وإلغاء التسديد' },
-      { id: 'investments', label: 'محفظة الاستثمار (EGX)', icon: '📈', subtitle: 'تداول الأسهم، متوسط التكلفة، والأرباح' },
+      { id: 'investments', label: 'الأسهم المصرية والذهب', icon: '📈', subtitle: 'متابعة قيمة الثروة بالجنيه المصري دون تداول أو تحويل عملات' },
       { id: 'accounts', label: 'الحسابات والتحويلات', icon: '💳', subtitle: 'إدارة البنوك، المحافظ، والتحويل متعدد العملات' },
       { id: 'budgets', label: 'الميزانيات والأهداف', icon: '🎯', subtitle: 'حدود الأفكار والصناديق التوفيرية' },
       { id: 'reports', label: 'التقارير والتحليلات', icon: '📉', subtitle: 'كشوف حساسة تفاعلية وتصدير CSV' },
@@ -1068,6 +1070,10 @@
       }
     }
 
+    function safeHTML(v) { return String(v ?? '').replace(/[&<>\"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[ch])); }
+    function investData() { store.simpleInvestments ||= {stocks:[],gold:[]}; return store.simpleInvestments; }
+    function investmentTotals() { const inv=investData(); const stocks=inv.stocks.reduce((n,x)=>n+Number(x.currentValue||0),0); const gold=inv.gold.reduce((n,x)=>n+Number(x.grams||0)*Number(x.pricePerGram||0),0); return {stocks,gold,total:stocks+gold}; }
+
     function renderSidebarNav() {
       const navEl = document.getElementById('sidebarNav');
       navEl.innerHTML = TABS.map(t => {
@@ -1088,7 +1094,7 @@
 
     function updateHeaderBadges() {
       const rate = engine.getRate();
-      document.getElementById('rateBadge').innerText = `1 ر.س = ${rate} ج.م`;
+      document.getElementById('rateBadge').innerText = 'الاستثمارات بالجنيه المصري 🇪🇬';
     }
 
     function renderActiveTab() {
@@ -1117,7 +1123,7 @@
           <div class="grid-4">
             <div class="card">
               <div style="font-size: 0.75rem; color: var(--text-slate-400); margin-bottom: 0.25rem; display: flex; justify-content: space-between;">
-                <span>إجمالي الثروة الصافية (Net Worth)</span>
+                <span>صافي الأصول والحسابات (بالريال التقريبي)</span>
                 <span>💎</span>
               </div>
               <div style="font-size: 1.5rem; font-weight: 900; color: #fff;">${formatMoney(netWorth.netWorthSAR, 'SAR')}</div>
@@ -1144,11 +1150,11 @@
 
             <div class="card">
               <div style="font-size: 0.75rem; color: var(--text-slate-400); margin-bottom: 0.25rem; display: flex; justify-content: space-between;">
-                <span>أسهم البورصة المصرية (EGX)</span>
+                <span>الأسهم والذهب في مصر (ج.م)</span>
                 <span>📈</span>
               </div>
-              <div style="font-size: 1.5rem; font-weight: 900; color: #fff;">${formatMoney(netWorth.portfolioValueEGP, 'EGP')}</div>
-              <div style="font-size: 0.6875rem; color: var(--text-slate-400); margin-top: 0.25rem;">تساوي تقريباً ${formatMoney(netWorth.portfolioValueSAR, 'SAR')}</div>
+              <div style="font-size: 1.5rem; font-weight: 900; color: #fff;">${formatMoney(investmentTotals().total, 'EGP')}</div>
+              <div style="font-size: 0.6875rem; color: var(--text-slate-400); margin-top: 0.25rem;">الأسهم ${formatMoney(investmentTotals().stocks,'EGP')} • الذهب ${formatMoney(investmentTotals().gold,'EGP')}</div>
             </div>
           </div>
 
@@ -1286,7 +1292,7 @@
           <div class="card">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
               <h3 style="font-size: 1.125rem; font-weight: 700; color: #fff;">جدول جميع المعاملات والمصاريف</h3>
-              <button onclick="openModal('quickExpenseModal')" class="btn btn-primary" style="font-size: 0.75rem;">+ إضافة مصروف</button>
+              <div style="display:flex;gap:.5rem;flex-wrap:wrap"><button onclick="manageExpenseCategories()" class="btn btn-secondary" style="font-size:.75rem">⚙️ إدارة التصنيفات</button><button onclick="openModal('quickExpenseModal')" class="btn btn-primary" style="font-size:.75rem">+ إضافة مصروف</button></div>
             </div>
             <div class="table-container">
               <table>
@@ -1322,6 +1328,28 @@
           </div>
         </div>
       `;
+    }
+
+    function manageExpenseCategories() {
+      const categories=store.categories.filter(c=>c.type==='EXPENSE');
+      const action=prompt('إدارة تصنيفات المصروفات: اكتب + للإضافة، أو رقم التصنيف لحذفه\n'+categories.map((x,i)=>(i+1)+'. '+x.name).join('\n'),'+');
+      if(action===null)return;
+      if(action.trim()==='+') {
+        const name=prompt('اسم تصنيف المصروف الجديد:');
+        if(name===null)return;
+        const trimmed=name.trim();
+        if(!trimmed || trimmed.length>80) return alert('الاسم مطلوب (حتى 80 حرفًا)');
+        if(categories.some(x=>x.name===trimmed))return alert('التصنيف موجود بالفعل');
+        store.categories.push({id:'cat_custom_'+Date.now(),name:trimmed,type:'EXPENSE',color:'#10b981'});
+      } else {
+        const i=Number(action)-1;
+        if(!Number.isInteger(i)||i<0||i>=categories.length)return alert('اختيار غير صالح');
+        const cat=categories[i];
+        if(store.transactions.some(t=>t.categoryId===cat.id)||store.goals.some(g=>g.categoryId===cat.id)) return alert('لا يمكن حذف تصنيف مرتبط بمعاملات أو أهداف. احذف أو أعد تصنيف المعاملات المرتبطة أولًا.');
+        if(!confirm('حذف التصنيف: '+cat.name+'؟'))return;
+        store.categories=store.categories.filter(x=>x.id!==cat.id);
+      }
+      saveStore(store);renderActiveTab();populateModalDropdowns();
     }
 
     function handleDeleteTransactionAction(txId) {
@@ -1407,73 +1435,55 @@
       }
     }
 
-    // 5. PORTFOLIO VIEW
+    // 5. SIMPLE EGYPT-ONLY INVESTMENTS (independent of cash ledger)
     function renderPortfolioView(container) {
-      const summary = engine.calculatePortfolioSummary();
+      const inv = investData(), t = investmentTotals();
       container.innerHTML = `
-        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
-          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
-            <h3 style="font-size: 1.125rem; font-weight: 700; color: #fff;">محفظة أسهم البورصة المصرية والسعودية</h3>
-            <div style="display: flex; gap: 0.5rem;">
-              <button onclick="openModal('addStockModal')" class="btn btn-secondary" style="font-size: 0.75rem;">+ إضافة سهم للقائمة</button>
-              <button onclick="openModal('tradeModal')" class="btn btn-primary" style="font-size: 0.75rem;">+ تسجيل صفقة أسهم / كوبون</button>
-            </div>
-          </div>
-
+        <div style="display:flex;flex-direction:column;gap:1.25rem">
+          <div class="card"><h3 style="color:white;font-size:1.1rem;font-weight:800">📈 ثروتي في الأسهم المصرية والذهب</h3>
+            <p style="color:var(--text-slate-400);font-size:.8rem;margin-top:.5rem">جميع المبالغ بالجنيه المصري فقط. القيم تُدخل يدويًا، ولا تُخصم من الراتب أو أرصدة البنوك، ولا توجد أسعار سوق مباشرة.</p></div>
           <div class="grid-3">
-            <div class="card">
-              <div style="font-size: 0.75rem; color: var(--text-slate-400);">قيمة المحفظة السوقية (EGP)</div>
-              <div style="font-size: 1.5rem; font-weight: 900; color: #fff;">${formatMoney(summary.totalValueEGP, 'EGP')}</div>
-            </div>
-            <div class="card">
-              <div style="font-size: 0.75rem; color: var(--text-slate-400);">الأرباح غير المحققة</div>
-              <div style="font-size: 1.5rem; font-weight: 900; color: ${summary.totalUnrealizedEGP >= 0 ? 'var(--emerald-500)' : 'var(--red-400)'};">
-                ${formatMoney(summary.totalUnrealizedEGP, 'EGP')}
-              </div>
-            </div>
-            <div class="card">
-              <div style="font-size: 0.75rem; color: var(--text-slate-400);">الأرباح الكوبونات الموزعة</div>
-              <div style="font-size: 1.5rem; font-weight: 900; color: var(--amber-400);">${formatMoney(summary.totalDividendsEGP, 'EGP')}</div>
-            </div>
+            <div class="card"><div style="color:var(--text-slate-400)">قيمة الأسهم الحالية</div><h2 style="color:white;font-size:1.5rem">${formatMoney(t.stocks,'EGP')}</h2></div>
+            <div class="card"><div style="color:var(--text-slate-400)">قيمة الذهب الحالية</div><h2 style="color:white;font-size:1.5rem">${formatMoney(t.gold,'EGP')}</h2></div>
+            <div class="card"><div style="color:var(--text-slate-400)">إجمالي ثروة الاستثمارات</div><h2 style="color:var(--emerald-500);font-size:1.5rem">${formatMoney(t.total,'EGP')}</h2></div>
           </div>
-
-          <div class="card">
-            <h3 style="font-size: 1rem; font-weight: 700; color: #fff; margin-bottom: 1rem;">ملكية الأسهم الحالية</h3>
-            <div class="table-container">
-              <table>
-                <thead>
-                  <tr>
-                    <th>رمز السهم</th>
-                    <th>الكمية</th>
-                    <th>متوسط التكلفة</th>
-                    <th>السعر الحالي</th>
-                    <th>القيمة السوقية</th>
-                    <th>الأرباح</th>
-                    <th>إجراءات</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${summary.holdings.map(h => `
-                    <tr>
-                      <td style="font-weight: 700; color: #fff;">${h.stock.symbol} - ${h.stock.companyName}</td>
-                      <td style="font-weight: 600;">${h.quantity} سهم</td>
-                      <td>${formatMoney(h.avgCost, h.stock.currency)}</td>
-                      <td>${formatMoney(h.stock.currentPrice, h.stock.currency)}</td>
-                      <td style="font-weight: 900; color: #fff;">${formatMoney(h.currentValue, h.stock.currency)}</td>
-                      <td style="font-weight: 900; color: ${h.unrealizedPL >= 0 ? 'var(--emerald-500)' : 'var(--red-400)'};">
-                        ${formatMoney(h.unrealizedPL, h.stock.currency)}
-                      </td>
-                      <td>
-                        <button onclick="updateStockPricePrompt('${h.stock.id}', ${h.stock.currentPrice})" style="background: none; border: none; color: var(--emerald-500); cursor: pointer; font-weight: 700;">تحديث السعر</button>
-                      </td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      `;
+          <div class="card"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem"><h3 style="color:white;font-weight:800">📊 الأسهم</h3><button class="btn btn-primary" onclick="editSimpleInvestment('stocks')">+ إضافة سهم</button></div>
+          <div class="table-container"><table><thead><tr><th>اسم السهم</th><th>المدفوع</th><th>القيمة الحالية</th><th>الفرق</th><th>إجراءات</th></tr></thead><tbody>${inv.stocks.map(x=>`<tr><td>${safeHTML(x.name)}</td><td>${formatMoney(x.paid,'EGP')}</td><td>${formatMoney(x.currentValue,'EGP')}</td><td style="color:${x.currentValue-x.paid>=0?'var(--emerald-500)':'var(--red-400)'}">${formatMoney(x.currentValue-x.paid,'EGP')}</td><td><button style="color:var(--emerald-500);margin-left:.6rem" onclick="editSimpleInvestment('stocks','${x.id}')">تعديل</button><button style="color:var(--red-400)" onclick="deleteSimpleInvestment('stocks','${x.id}')">حذف</button></td></tr>`).join('')||'<tr><td colspan="5">مفيش أسهم مضافة لسه</td></tr>'}</tbody></table></div></div>
+          <div class="card"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem"><h3 style="color:white;font-weight:800">🥇 الذهب</h3><button class="btn btn-primary" onclick="editSimpleInvestment('gold')">+ إضافة ذهب</button></div>
+          <div class="table-container"><table><thead><tr><th>النوع</th><th>الجرامات</th><th>سعر الجرام الحالي</th><th>القيمة الحالية</th><th>إجراءات</th></tr></thead><tbody>${inv.gold.map(x=>`<tr><td>${safeHTML(x.name)}</td><td>${Number(x.grams).toLocaleString('ar-SA')}</td><td>${formatMoney(x.pricePerGram,'EGP')}</td><td>${formatMoney(x.grams*x.pricePerGram,'EGP')}</td><td><button style="color:var(--emerald-500);margin-left:.6rem" onclick="editSimpleInvestment('gold','${x.id}')">تعديل</button><button style="color:var(--red-400)" onclick="deleteSimpleInvestment('gold','${x.id}')">حذف</button></td></tr>`).join('')||'<tr><td colspan="5">مفيش ذهب مضاف لسه</td></tr>'}</tbody></table></div></div>
+        </div>`;
+    }
+    function askNonnegative(label, existing) {
+      const raw=prompt(label,existing===undefined?'':String(existing));
+      if(raw===null) return null;
+      if(raw.trim()==='' || !Number.isFinite(Number(raw)) || Number(raw)<0) throw Error('أدخل رقمًا صحيحًا أكبر من أو يساوي صفر');
+      return Number(raw);
+    }
+    function editSimpleInvestment(type,id) {
+      const inv=investData(), item=id?inv[type].find(x=>x.id===id):null;
+      try {
+        const name=prompt(type==='stocks'?'اسم السهم المصري:':'نوع الذهب / وصفه:',item?.name||'');
+        if(name===null) return;
+        if(!name.trim()) throw Error('الاسم مطلوب');
+        let values;
+        if(type==='stocks') {
+          const paid=askNonnegative('إجمالي المبلغ المدفوع بالجنيه المصري:',item?.paid);if(paid===null)return;
+          const currentValue=askNonnegative('القيمة الحالية للاستثمار بالجنيه المصري:',item?.currentValue);if(currentValue===null)return;
+          values={paid,currentValue};
+        } else {
+          const grams=askNonnegative('عدد جرامات الذهب:',item?.grams);if(grams===null)return;
+          const pricePerGram=askNonnegative('سعر الجرام الحالي بالجنيه المصري:',item?.pricePerGram);if(pricePerGram===null)return;
+          values={grams,pricePerGram};
+        }
+        if(item) Object.assign(item,{name:name.trim()},values);
+        else inv[type].push({id:'simple_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),name:name.trim(),...values});
+        saveStore(store);renderActiveTab();
+      } catch(e) {alert(e.message)}
+    }
+    function deleteSimpleInvestment(type,id) {
+      if(!confirm('حذف هذا الاستثمار نهائيًا؟'))return;
+      investData()[type]=investData()[type].filter(x=>x.id!==id);
+      saveStore(store);renderActiveTab();
     }
 
     // 6. ACCOUNTS
@@ -1796,7 +1806,10 @@
       reader.onload = function(e) {
         try {
           const imported = JSON.parse(e.target.result);
-          if (FinancialEngine.validateBackupJSON(imported)) {
+          const simpleOK = !imported.simpleInvestments || (['stocks','gold'].every(k=>Array.isArray(imported.simpleInvestments[k])) &&
+            imported.simpleInvestments.stocks.every(x=>typeof x.name==='string' && x.name.trim() && Number.isFinite(x.paid) && x.paid>=0 && Number.isFinite(x.currentValue) && x.currentValue>=0) &&
+            imported.simpleInvestments.gold.every(x=>typeof x.name==='string' && x.name.trim() && Number.isFinite(x.grams) && x.grams>=0 && Number.isFinite(x.pricePerGram) && x.pricePerGram>=0));
+          if (simpleOK && FinancialEngine.validateBackupJSON(imported)) {
             if (!confirm('سيتم استبدال جميع بياناتك الحالية بالنسخة المستوردة. تأكد من حفظ نسخة احتياطية أولاً. متابعة؟')) return;
             saveStore(imported);
             alert('تم استيراد النسخة الاحتياطية وتحديث كافة البيانات بنجاح!');
