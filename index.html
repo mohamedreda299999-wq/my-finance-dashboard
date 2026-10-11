@@ -1379,23 +1379,24 @@
     }
 
     function manageExpenseCategories() {
-      const categories=store.categories.filter(c=>c.type==='EXPENSE');
-      const action=prompt('إدارة تصنيفات المصروفات: اكتب + للإضافة، أو رقم التصنيف لحذفه\n'+categories.map((x,i)=>(i+1)+'. '+x.name).join('\n'),'+');
-      if(action===null)return;
-      if(action.trim()==='+') {
-        const name=prompt('اسم تصنيف المصروف الجديد:');
-        if(name===null)return;
-        const trimmed=name.trim();
-        if(!trimmed || trimmed.length>80) return alert('الاسم مطلوب (حتى 80 حرفًا)');
-        if(categories.some(x=>x.name===trimmed))return alert('التصنيف موجود بالفعل');
-        store.categories.push({id:'cat_custom_'+Date.now(),name:trimmed,type:'EXPENSE',color:'#10b981'});
+      const input=prompt('اكتب اسم التصنيف الجديد مباشرة، أو اكتب "حذف" لحذف تصنيف موجود:');
+      if(input===null)return;
+      const name=input.trim();
+      if(!name)return;
+      if(name==='حذف') {
+        const categories=store.categories.filter(c=>c.type==='EXPENSE');
+        const answer=prompt('اكتب رقم التصنيف المراد حذفه:\n'+categories.map((c,i)=>(i+1)+'. '+c.name).join('\n'));
+        if(answer===null)return;
+        const index=Number(answer.trim())-1;
+        if(!Number.isInteger(index)||index<0||index>=categories.length)return alert('اختار رقم تصنيف صحيح.');
+        const category=categories[index];
+        if(store.transactions.some(t=>t.categoryId===category.id)||store.goals.some(g=>g.categoryId===category.id))return alert('التصنيف مستخدم في معاملات أو أهداف مالية، ولا يمكن حذفه قبل نقلها لتصنيف آخر.');
+        if(!confirm('هل تريد حذف التصنيف: '+category.name+'؟'))return;
+        store.categories=store.categories.filter(c=>c.id!==category.id);
       } else {
-        const i=Number(action)-1;
-        if(!Number.isInteger(i)||i<0||i>=categories.length)return alert('اختيار غير صالح');
-        const cat=categories[i];
-        if(store.transactions.some(t=>t.categoryId===cat.id)||store.goals.some(g=>g.categoryId===cat.id)) return alert('لا يمكن حذف تصنيف مرتبط بمعاملات أو أهداف. احذف أو أعد تصنيف المعاملات المرتبطة أولًا.');
-        if(!confirm('حذف التصنيف: '+cat.name+'؟'))return;
-        store.categories=store.categories.filter(x=>x.id!==cat.id);
+        if(name.length>80)return alert('اسم التصنيف طويل جدًا (الحد 80 حرفًا).');
+        if(store.categories.some(c=>c.type==='EXPENSE'&&c.name.trim().toLocaleLowerCase()===name.toLocaleLowerCase()))return alert('التصنيف موجود بالفعل.');
+        store.categories.push({id:'cat_custom_'+Date.now()+'_'+Math.floor(Math.random()*10000),name,type:'EXPENSE',color:'#10b981'});
       }
       saveStore(store);renderActiveTab();populateModalDropdowns();
     }
