@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>محفظتي المالية | My Finance Dashboard</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <meta name="theme-color" content="#0f172a">
+  <link rel="icon" type="image/svg+xml" href="./icon.svg">
   <style>
     :root {
       --bg-slate-950: #020617;
@@ -1080,6 +1083,7 @@
 
     function saveStore(store) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+      localStorage.setItem('finance_pending_cloud_sync','1');
       if (window.financeCloudSave) window.financeCloudSave(store);
     }
 
@@ -2119,6 +2123,12 @@
   (() => {
     let auth, db, user, unsubscribe, pendingTimer, loadingCloud = false, initialized = false;
     const status = msg => { const e=document.getElementById('cloudStatus');if(e)e.textContent=msg; };
+    const pendingKey='finance_pending_cloud_sync';
+    const baselineKey=uid=>'finance_cloud_baseline_'+uid;
+    const setStatus=()=>{ if(!navigator.onLine) status('📴 بدون إنترنت: بياناتك محفوظة على الجهاز، والمزامنة معلّقة'); };
+    window.addEventListener('offline',setStatus);
+    window.addEventListener('online',()=>{status('🌐 عاد الاتصال — جاري فحص سلامة المزامنة');if(user)window.financeCloudSync();});
+
     function renderCurrentUser(u) {
       const label=u ? (u.displayName || u.email || 'مستخدم مسجّل') : '';
       const sidebar=document.getElementById('currentUserSidebar');
@@ -2154,6 +2164,7 @@
           renderCurrentUser(u);
           if(unsubscribe){unsubscribe();unsubscribe=null;}
           if(!u){status('غير مسجّل دخول. البيانات الآن محلية فقط.');return;}
+          if(!navigator.onLine){setStatus();return;}
           status('متصل بحساب '+u.email+' — جاري تحميل البيانات');
           const doc=db.collection('users').doc(u.uid).collection('private').doc('finance');
           try {
@@ -2164,6 +2175,11 @@
               const remoteStr=JSON.stringify(remote);
               const localStr=localStorage.getItem('my_finance_dashboard_db_v3');
               const isSame=remoteStr===localStr;
+              const baseline=localStorage.getItem(baselineKey(u.uid));
+              if(localStorage.getItem(pendingKey)==='1' && baseline && baseline!==remoteStr){
+                status('⚠️ تعارض مزامنة: تغيّرت السحابة والجهاز. صدّر نسخة احتياطية قبل حل التعارض.');
+                return;
+              }
               if (!isSame) {
                 // Never overwrite either copy automatically. Ask once per cloud version in this tab.
                 const promptKey='finance_cloud_choice_'+u.uid;
@@ -2180,6 +2196,7 @@
                 }
                 loadingCloud=true;
                 localStorage.setItem('my_finance_dashboard_db_v3',remoteStr);
+                localStorage.removeItem(pendingKey);
                 store=getStore();
                 engine=new FinancialEngine(store);
                 loadingCloud=false;
@@ -2189,6 +2206,8 @@
             }else{
               await doc.set({store:JSON.parse(localStorage.getItem('my_finance_dashboard_db_v3')),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
             }
+            localStorage.setItem(baselineKey(u.uid),JSON.stringify((await doc.get()).data().store));
+            localStorage.removeItem(pendingKey);
             status('✅ متصل بالسحابة — التغييرات ستُرفع تلقائيًا');
             unsubscribe=doc.onSnapshot(snap=>{
               if (!snap.exists || snap.metadata.hasPendingWrites || loadingCloud) return;
@@ -2197,7 +2216,12 @@
               const here=localStorage.getItem('my_finance_dashboard_db_v3');
               const remoteStr=JSON.stringify(remote);
               if(here!==remoteStr){
+                if(localStorage.getItem(pendingKey)==='1'){
+                  status('⚠️ تعارض: تعديلات محلية لم تُرفع، ووردت نسخة أخرى. لن نستبدل بياناتك.');
+                  return;
+                }
                 loadingCloud=true;localStorage.setItem('my_finance_dashboard_db_v3',remoteStr);loadingCloud=false;
+                localStorage.setItem(baselineKey(user.uid),remoteStr);
                 status('🔄 وصلت بيانات جديدة من جهاز آخر — حدّث الصفحة لعرضها');
               }
             },e=>status('تعذر استقبال تحديثات السحابة: '+e.message));
@@ -2215,20 +2239,36 @@
       catch(e){alert('تعذر تسجيل الدخول: '+e.message)}
     };
     window.financeCloudLogout=async()=>{if(auth)await auth.signOut();};
-    window.financeCloudSave=store=>{
-      if(!user || !db || loadingCloud)return;
+    window.financeCloudSave=()=> {
+      localStorage.setItem(pendingKey,'1');
+      if(!user || !db || loadingCloud || !navigator.onLine) {setStatus();return;}
       clearTimeout(pendingTimer);
-      pendingTimer=setTimeout(async()=>{
-        try{await db.collection('users').doc(user.uid).collection('private').doc('finance').set({store,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});status('✅ تم حفظ أحدث تغييراتك على السحابة');}
-        catch(e){status('⚠️ لم يتم رفع التغيير؛ محفوظ محليًا فقط: '+e.message);}
-      },1200);
+      pendingTimer=setTimeout(()=>window.financeCloudSync(),1500);
     };
-    window.financeCloudSync=()=>{
-      if(!user){alert('سجّل الدخول أولًا');return;}
+    window.financeCloudSync=async()=>{
+      if(!user || !db || !navigator.onLine){setStatus();return;}
+      if(localStorage.getItem(pendingKey)!=='1')return;
       const raw=localStorage.getItem('my_finance_dashboard_db_v3');
-      if(raw)window.financeCloudSave(JSON.parse(raw));
+      if(!raw)return;
+      const doc=db.collection('users').doc(user.uid).collection('private').doc('finance');
+      try {
+        const snap=await doc.get({source:'server'});
+        const remoteStr=snap.exists?JSON.stringify(snap.data().store):null;
+        const baseline=localStorage.getItem(baselineKey(user.uid));
+        if(remoteStr!==null && remoteStr!==raw && remoteStr!==baseline){
+          status('⚠️ تعارض: السحابة والجهاز اتغيروا. لم يتم رفع أو مسح أي نسخة. احتفظ بنسخة JSON.');
+          return;
+        }
+        const saved=JSON.parse(raw);
+        if(!FinancialEngine.validateBackupJSON(saved)) throw Error('بيانات محلية غير صالحة');
+        await doc.set({store:saved,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+        localStorage.setItem(baselineKey(user.uid),raw);
+        if(localStorage.getItem('my_finance_dashboard_db_v3')===raw)localStorage.removeItem(pendingKey);
+        status('✅ تمت مزامنة تغييرات الجهاز بالسحابة');
+      }catch(e){status('📴 بياناتك محفوظة محليًا. تعذرت المزامنة: '+e.message);}
     };
     document.addEventListener('DOMContentLoaded',()=>{ready();renderCurrentUser(user);});
+    if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
   })();
   </script>
 </body>
