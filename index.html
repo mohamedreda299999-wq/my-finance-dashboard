@@ -227,7 +227,7 @@
         </div>
         <div>
           <label style="display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-slate-300); margin-bottom: 0.25rem;">التصنيف</label>
-          <select id="qeCategoryId" class="form-control"></select>
+          <select id="qeCategoryId" class="form-control" onchange="handleQuickCategoryChange(this)"></select>
         </div>
         <div>
           <label style="display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-slate-300); margin-bottom: 0.25rem;">الوصف / البيان</label>
@@ -1681,7 +1681,7 @@
       if (accSelect) accSelect.innerHTML = store.accounts.map(a => `<option value="${a.id}">${a.name} (${a.balance} ${a.currency})</option>`).join('');
 
       const catSelect = document.getElementById('qeCategoryId');
-      if (catSelect) catSelect.innerHTML = store.categories.filter(c => c.type === 'EXPENSE').map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+      if (catSelect) { const previous = catSelect.value; catSelect.innerHTML = store.categories.filter(c => c.type === 'EXPENSE').map(c => `<option value="${c.id}">${safeHTML(c.name)}</option>`).join('') + '<option value="__add_new_expense_category__">➕ إضافة تصنيف جديد...</option>'; if ([...catSelect.options].some(o => o.value === previous)) catSelect.value = previous; }
 
       const trFrom = document.getElementById('trFromAccountId');
       const trTo = document.getElementById('trToAccountId');
@@ -1701,6 +1701,22 @@
 
       const rateInput = document.getElementById('newRateInput');
       if (rateInput) rateInput.value = engine.getRate();
+    }
+
+    function handleQuickCategoryChange(select) {
+      if (select.value !== '__add_new_expense_category__') return;
+      const oldOption = [...select.options].find(o=>o.value !== '__add_new_expense_category__');
+      const name = prompt('اكتب اسم تصنيف المصروف الجديد:');
+      if (name === null) { select.value = oldOption?.value || ''; return; }
+      const trimmed = name.trim();
+      if (!trimmed || trimmed.length > 80) { alert('اسم التصنيف مطلوب ويجب ألا يزيد عن 80 حرفًا'); select.value = oldOption?.value || ''; return; }
+      const existing = store.categories.find(c => c.type === 'EXPENSE' && c.name.trim().toLocaleLowerCase() === trimmed.toLocaleLowerCase());
+      if (existing) { select.value = existing.id; return; }
+      const category = {id:'cat_custom_'+Date.now()+'_'+Math.floor(Math.random()*10000),name:trimmed,type:'EXPENSE',color:'#10b981'};
+      store.categories.push(category);
+      saveStore(store);
+      populateModalDropdowns();
+      document.getElementById('qeCategoryId').value = category.id;
     }
 
     function handleQuickExpenseSubmit(e) {
