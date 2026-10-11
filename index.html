@@ -1821,6 +1821,10 @@
                 <button class="btn btn-secondary" onclick="window.financeCloudLogout?.()">تسجيل خروج</button>
                 <button class="btn btn-secondary" onclick="window.financeCloudSync?.()">مزامنة الآن</button>
               </div>
+              <div style="display:flex;flex-wrap:wrap;gap:.6rem;margin-top:.85rem">
+                <button class="btn btn-secondary" style="border-color:#10b981;color:#6ee7b7" onclick="window.financeCloudResolve?.('upload')">⬆️ اعتماد بيانات هذا الجهاز على السحابة</button>
+                <button class="btn btn-secondary" style="border-color:#f59e0b;color:#fbbf24" onclick="window.financeCloudResolve?.('download')">⬇️ تحميل بيانات السحابة على هذا الجهاز</button>
+              </div>
               <p style="font-size:.75rem;color:#94a3b8;margin-top:.75rem">لا تستخدم حسابك قبل تفعيل قواعد أمان Firestore. لو عدّلت نفس البيانات على جهازين دون اتصال، آخر حفظ قد يطغى على الآخر. لا تستخدم كلمة مرور حساب GitHub هنا.</p>
             </section>
             <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
@@ -2386,6 +2390,47 @@
         }
         status('⚠️ السحابة لا تحتوي على نسخة والجهاز يحتوي بيانات. راجع الحساب قبل الرفع.');
       }catch(e){status('تعذرت المزامنة، البيانات محفوظة على الجهاز: '+e.message);}
+    };
+    window.financeCloudResolve=async(direction)=>{
+      if(!user || !db || !navigator.onLine){alert('يجب تسجيل الدخول والاتصال بالإنترنت أولًا.');return;}
+      if(!['upload','download'].includes(direction))return;
+      const uid=user.uid;
+      const localRaw=localStorage.getItem('my_finance_dashboard_db_v3');
+      const localData=localRaw?JSON.parse(localRaw):null;
+      if(!localData || !FinancialEngine.validateBackupJSON(localData)){alert('بيانات هذا الجهاز غير صالحة، لم ننفذ أي تغيير.');return;}
+      // Always back up the local dataset before a destructive conflict resolution.
+      const backup=new Blob([JSON.stringify(localData,null,2)],{type:'application/json'});
+      const backupUrl=URL.createObjectURL(backup);
+      const link=document.createElement('a');link.href=backupUrl;link.download='finance_before_sync_'+direction+'_'+new Date().toISOString().slice(0,10)+'.json';
+      document.body.appendChild(link);link.click();link.remove();
+      setTimeout(()=>URL.revokeObjectURL(backupUrl),10000);
+      const message=direction==='upload'
+        ?'تم تجهيز تنزيل نسخة JSON من بيانات هذا الجهاز. هل تؤكد اعتماد بيانات هذا الجهاز باعتبارها المرجع الصحيح واستبدال بيانات Firebase بالكامل؟ تأكد أنك على اللاب الصحيح.'
+        :'تم تجهيز تنزيل نسخة JSON من بيانات هذا الجهاز. هل تؤكد استبدال بيانات هذا الجهاز ببيانات Firebase؟ تأكد أنك على الموبايل المقصود.';
+      if(!confirm(message))return;
+      const doc=db.collection('users').doc(uid).collection('private').doc('finance');
+      try{
+        const snap=await doc.get({source:'server'});
+        if(user?.uid!==uid)throw Error('تغير حساب المستخدم خلال العملية');
+        if(direction==='upload'){
+          // Explicit user authorization for overriding stale cloud state.
+          await doc.set({store:localData,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+          localStorage.setItem(baselineKey(uid),localRaw);
+          if(localStorage.getItem('my_finance_dashboard_db_v3')===localRaw)localStorage.removeItem(pendingKey);
+          status('✅ تم اعتماد بيانات هذا الجهاز على Firebase بنجاح.');
+        }else{
+          if(!snap.exists || !FinancialEngine.validateBackupJSON(snap.data().store))throw Error('نسخة السحابة غير موجودة أو غير صالحة');
+          const remoteRaw=JSON.stringify(snap.data().store);
+          loadingCloud=true;
+          try{
+            localStorage.setItem('my_finance_dashboard_db_v3',remoteRaw);
+            localStorage.setItem(baselineKey(uid),remoteRaw);
+            localStorage.removeItem(pendingKey);
+            renderActiveTab();updateHeaderBadges();
+          }finally{loadingCloud=false;}
+          status('✅ تم تحميل النسخة السحابية على هذا الجهاز بنجاح.');
+        }
+      }catch(e){loadingCloud=false;status('❌ فشل حل التعارض: '+e.message);alert('لم تكتمل العملية: '+e.message);}
     };
     document.addEventListener('DOMContentLoaded',()=>{ready();renderCurrentUser(user);});
     if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
