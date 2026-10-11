@@ -2313,9 +2313,16 @@
                   status('⚠️ تعارض: تعديلات محلية لم تُرفع، ووردت نسخة أخرى. لن نستبدل بياناتك.');
                   return;
                 }
-                loadingCloud=true;localStorage.setItem('my_finance_dashboard_db_v3',remoteStr);loadingCloud=false;
+                loadingCloud=true;
+                localStorage.setItem('my_finance_dashboard_db_v3',remoteStr);
                 localStorage.setItem(baselineKey(user.uid),remoteStr);
-                status('🔄 وصلت بيانات جديدة من جهاز آخر — حدّث الصفحة لعرضها');
+                try {
+                  renderActiveTab();
+                  updateHeaderBadges();
+                  status('✅ وصلت تحديثات جهاز آخر وتم تحديث الشاشة تلقائيًا');
+                } catch(e) {
+                  status('🔄 وصلت التحديثات، حدّث الصفحة لعرضها: '+e.message);
+                } finally { loadingCloud=false; }
               }
             },e=>status('تعذر استقبال تحديثات السحابة: '+e.message));
           }catch(e){status('خطأ بالمزامنة: '+e.message)}
