@@ -2072,10 +2072,31 @@
             if(snap.exists){
               const remote=snap.data().store;
               if(!remote || !(typeof FinancialEngine !== "undefined" && FinancialEngine.validateBackupJSON(remote))) throw new Error('النسخة السحابية غير صالحة');
-              const isSame=JSON.stringify(remote)===localStorage.getItem('my_finance_dashboard_db_v3');
-              const useCloud=isSame || confirm('يوجد ملف مالي على السحابة. اضغط موافق لتحميله واستبدال نسخة هذا الجهاز، أو إلغاء للاحتفاظ بالمحلي ورفعه للسحابة. يُنصح بتصدير نسخة JSON أولاً.');
-              if(useCloud && !isSame){loadingCloud=true;localStorage.setItem('my_finance_dashboard_db_v3',JSON.stringify(remote));loadingCloud=false;location.reload();return;}
-              await doc.set({store:JSON.parse(localStorage.getItem('my_finance_dashboard_db_v3')),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+              const remoteStr=JSON.stringify(remote);
+              const localStr=localStorage.getItem('my_finance_dashboard_db_v3');
+              const isSame=remoteStr===localStr;
+              if (!isSame) {
+                // Never overwrite either copy automatically. Ask once per cloud version in this tab.
+                const promptKey='finance_cloud_choice_'+u.uid;
+                const fingerprint=String(snap.updateTime?.toMillis?.() || remoteStr.length);
+                if (sessionStorage.getItem(promptKey)===fingerprint) {
+                  status('⚠️ توجد نسختان مختلفتان. صدّر نسخة JSON قبل اختيار النسخة المراد استخدامها.');
+                  return;
+                }
+                sessionStorage.setItem(promptKey,fingerprint);
+                const useCloud=confirm('بيانات هذا الجهاز مختلفة عن السحابة. اضغط موافق لتحميل السحابة، أو إلغاء للإبقاء على بيانات الجهاز دون رفعها أو حذفها. صدّر نسخة JSON احتياطية أولاً.');
+                if (!useCloud) {
+                  status('⚠️ احتفظنا بالنسختين دون استبدال. لن تتم المزامنة حتى تعالج التعارض.');
+                  return;
+                }
+                loadingCloud=true;
+                localStorage.setItem('my_finance_dashboard_db_v3',remoteStr);
+                store=getStore();
+                engine=new FinancialEngine(store);
+                loadingCloud=false;
+                renderActiveTab();
+                updateHeaderBadges();
+              }
             }else{
               await doc.set({store:JSON.parse(localStorage.getItem('my_finance_dashboard_db_v3')),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
             }
