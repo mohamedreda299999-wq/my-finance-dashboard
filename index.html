@@ -2217,8 +2217,8 @@
     window.addEventListener('online',updateOfflineBanner);
     document.addEventListener('DOMContentLoaded',updateOfflineBanner);
     window.addEventListener('online',()=>{status('🌐 عاد الاتصال — جاري فحص سلامة المزامنة');if(user){setTimeout(()=>window.financeCloudSync(true),2500);}});
-    document.addEventListener('visibilitychange',()=>{if(!document.hidden&&user&&navigator.onLine&&localStorage.getItem(pendingKey)==='1')window.financeCloudSync(true);});
-    setInterval(()=>{if(user&&navigator.onLine&&localStorage.getItem(pendingKey)==='1')window.financeCloudSync(true);},20000);
+    document.addEventListener('visibilitychange',()=>{if(!document.hidden&&user&&navigator.onLine)window.financeCloudSync(true);});
+    setInterval(()=>{if(user&&navigator.onLine)window.financeCloudSync(true);},30000);
 
     function renderCurrentUser(u) {
       const label=u ? (u.displayName || u.email || 'مستخدم مسجّل') : '';
@@ -2262,7 +2262,7 @@
         if(!cloud || !FinancialEngine.validateBackupJSON(cloud))return;
         const remote=JSON.stringify(cloud);
         const here=localStorage.getItem('my_finance_dashboard_db_v3');
-        if(remote===here){
+        if(sameFinanceData(remote,here)){
           localStorage.setItem(baselineKey(uid),remote);
           if(localStorage.getItem(pendingKey)!=='1')status('✅ الجهاز متصل بالسحابة، والبيانات متطابقة');
           return;
@@ -2272,7 +2272,7 @@
           return;
         }
         const baseline=localStorage.getItem(baselineKey(uid));
-        if(baseline && baseline!==here){
+        if(baseline && !sameFinanceData(baseline,here)){
           status('⚠️ تغييرات محلية غير متوقعة، لن نستبدل بياناتك قبل المراجعة.');
           return;
         }
