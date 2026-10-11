@@ -1213,9 +1213,9 @@
                       </div>
                     </div>
                     <div style="font-size: 0.875rem; font-weight: 900; color: ${tx.type === 'EXPENSE' ? 'var(--red-400)' : 'var(--emerald-500)'};">
-                      ${tx.type === 'EXPENSE' ? '-' : '+'}${formatMoney(tx.amount, tx.currency)}
+                      ${tx.type === 'EXPENSE' ? '-' : '+'}${formatMoney(engine.convertHistorical(tx,'SAR'),'SAR')}
                       <div style="font-size:.73rem;font-weight:600;color:#a5b4fc;margin-top:.22rem">
-                        ${tx.currency==='EGP' ? '≈ '+formatMoney(engine.convertHistorical(tx,'SAR'),'SAR') : '≈ '+formatMoney(engine.convertHistorical(tx,'EGP'),'EGP')}
+                        ≈ ${formatMoney(engine.convertHistorical(tx,'EGP'),'EGP')}
                       </div>
                     </div>
                   </div>
