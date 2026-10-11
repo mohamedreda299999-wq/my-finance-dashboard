@@ -160,7 +160,7 @@
       </div>
 
       <div style="padding: 1rem;">
-        <button onclick="openModal('quickExpenseModal')" class="btn btn-primary" style="width: 100%; gap: 0.5rem;">
+        <button onclick="openQuickExpenseCreate()" class="btn btn-primary" style="width: 100%; gap: 0.5rem;">
           <span>➕</span>
           <span>إضافة مصروف سريع</span>
         </button>
@@ -207,7 +207,7 @@
   <div id="quickExpenseModal" class="modal">
     <div class="modal-content">
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; border-bottom: 1px solid var(--border-slate-800); padding-bottom: 0.75rem;">
-        <h3 style="font-size: 1.125rem; font-weight: 700; color: #fff;">إضافة مصروف سريع</h3>
+        <h3 id="quickExpenseModalTitle" style="font-size: 1.125rem; font-weight: 700; color: #fff;">إضافة مصروف سريع</h3>
         <button onclick="closeModal('quickExpenseModal')" style="background: none; border: none; color: var(--text-slate-400); cursor: pointer; font-size: 1.25rem;">✕</button>
       </div>
       <form onsubmit="handleQuickExpenseSubmit(event)" style="display: flex; flex-direction: column; gap: 1rem;">
@@ -242,7 +242,7 @@
         </div>
         <div style="display: flex; gap: 0.75rem; margin-top: 0.5rem;">
           <button type="button" onclick="closeModal('quickExpenseModal')" class="btn btn-secondary" style="flex: 1;">إلغاء</button>
-          <button type="submit" class="btn btn-primary" style="flex: 1;">تسجيل المصروف</button>
+          <button id="quickExpenseSubmitButton" type="submit" class="btn btn-primary" style="flex: 1;">تسجيل المصروف</button>
         </div>
       </form>
     </div>
@@ -1380,7 +1380,10 @@
                           ${formatMoney(tx.amount, tx.currency)}
                         </td>
                         <td>
-                          <button onclick="handleDeleteTransactionAction('${tx.id}')" style="color: var(--red-400); background: none; border: none; cursor: pointer; font-weight: 700;">حذف وتعديل الرصيد</button>
+                          <div style="display:flex;gap:.55rem;align-items:center;flex-wrap:wrap">
+                            ${tx.type==='EXPENSE'?'<button class="btn btn-secondary" style="font-size:.75rem" onclick="editExpenseTransaction(\''+tx.id+'\')">✏️ تعديل</button>':''}
+                            <button onclick="handleDeleteTransactionAction('${tx.id}')" class="btn btn-danger" style="font-size:.75rem">🗑️ حذف</button>
+                          </div>
                         </td>
                       </tr>
                     `;
@@ -1757,25 +1760,76 @@
         : 'أدخل المبلغ وسعر صرف صحيح';
     }
 
+
+    let editingExpenseId = null;
+
+    function openQuickExpenseCreate() {
+      editingExpenseId=null;
+      document.getElementById('quickExpenseModalTitle').textContent='إضافة مصروف سريع';
+      document.getElementById('quickExpenseSubmitButton').textContent='تسجيل المصروف';
+      document.getElementById('qeAmount').value='';
+      document.getElementById('qeDescription').value='';
+      document.getElementById('qeExchangeRate').value='';
+      document.getElementById('qeCurrency').value='SAR';
+      document.getElementById('qeDate').value='';
+      openModal('quickExpenseModal');
+    }
+
+    function editExpenseTransaction(txId) {
+      const tx=store.transactions.find(t=>t.id===txId);
+      if(!tx || tx.type!=='EXPENSE' || tx.tradeId || tx.transferPairId || tx.obligationId || tx.installmentId) return alert('يمكن تعديل المصروفات العادية فقط. استخدم القسم المخصص للأقساط أو التحويلات.');
+      editingExpenseId=txId;
+      openModal('quickExpenseModal');
+      document.getElementById('quickExpenseModalTitle').textContent='تعديل المصروف';
+      document.getElementById('quickExpenseSubmitButton').textContent='حفظ التعديلات';
+      document.getElementById('qeAmount').value=tx.amount;
+      document.getElementById('qeCurrency').value=tx.currency;
+      document.getElementById('qeDate').value=String(tx.date).slice(0,10);
+      document.getElementById('qeAccountId').value=tx.accountId;
+      document.getElementById('qeCategoryId').value=tx.categoryId || '';
+      document.getElementById('qeDescription').value=tx.description || '';
+      document.getElementById('qeExchangeRate').value=tx.exchangeRate || engine.getRate();
+      updateQuickExpenseExchangeUI();
+    }
+
     function handleQuickExpenseSubmit(e) {
       e.preventDefault();
       try {
-        engine.addTransaction({
-          amount: document.getElementById('qeAmount').value,
-          currency: document.getElementById('qeCurrency').value,
-          exchangeRate: document.getElementById('qeCurrency').value === 'EGP' ? document.getElementById('qeExchangeRate').value : null,
-          accountId: document.getElementById('qeAccountId').value,
-          categoryId: document.getElementById('qeCategoryId').value,
-          description: document.getElementById('qeDescription').value || 'مصروف سريع',
-          type: 'EXPENSE',
-          date: document.getElementById('qeDate').value + 'T12:00:00'
-        });
+        const amount=Number(document.getElementById('qeAmount').value);
+        const currency=document.getElementById('qeCurrency').value;
+        const rate=currency==='EGP'?Number(document.getElementById('qeExchangeRate').value):engine.getRate();
+        const accountId=document.getElementById('qeAccountId').value;
+        const account=store.accounts.find(a=>a.id===accountId);
+        const date=document.getElementById('qeDate').value+'T12:00:00';
+        const categoryId=document.getElementById('qeCategoryId').value;
+        const description=document.getElementById('qeDescription').value || 'مصروف سريع';
+        if(!account)throw Error('الحساب المالي غير موجود');
+        if(!Number.isFinite(amount)||amount<=0||!Number.isFinite(rate)||rate<=0)throw Error('المبلغ أو سعر الصرف غير صالح');
+        if(!Number.isFinite(Date.parse(date)))throw Error('تاريخ المصروف غير صالح');
+        if(!store.categories.some(c=>c.id===categoryId&&c.type==='EXPENSE'))throw Error('اختر تصنيف مصروف صحيح');
+        const accountAmount=currency===account.currency?amount:
+          currency==='EGP'&&account.currency==='SAR'?amount/rate:
+          currency==='SAR'&&account.currency==='EGP'?amount*rate:NaN;
+        if(!Number.isFinite(accountAmount)||accountAmount<=0)throw Error('العملة أو سعر الصرف غير صالح');
+
+        if(editingExpenseId){
+          const tx=store.transactions.find(t=>t.id===editingExpenseId);
+          if(!tx||tx.type!=='EXPENSE'||tx.tradeId||tx.transferPairId||tx.obligationId||tx.installmentId)throw Error('المعاملة غير قابلة للتعديل من هنا');
+          const previous=store.accounts.find(a=>a.id===tx.accountId);
+          if(!previous)throw Error('الحساب الأصلي غير موجود');
+          const oldAmount=Number(tx.accountAmount??engine.convertHistorical(tx,previous.currency));
+          if(!Number.isFinite(oldAmount)||oldAmount<=0)throw Error('رصيد المعاملة السابقة غير صالح');
+          previous.balance+=oldAmount;
+          account.balance-=accountAmount;
+          Object.assign(tx,{amount,currency,exchangeRate:rate,accountId,accountAmount,categoryId,description,date});
+          editingExpenseId=null;
+        }else{
+          engine.addTransaction({amount,currency,exchangeRate:rate,accountId,categoryId,description,type:'EXPENSE',date});
+        }
         saveStore(store);
         closeModal('quickExpenseModal');
         renderActiveTab();
-      } catch (err) {
-        alert('خطأ: ' + err.message);
-      }
+      }catch(err){alert('خطأ: '+err.message)}
     }
 
     function handleTransferSubmit(e) {
