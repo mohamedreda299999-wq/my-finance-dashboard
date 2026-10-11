@@ -1,6 +1,8 @@
 window.FINANCE_FIREBASE_CONFIG = {
-  apiKey: 'REPLACE_WITH_API_KEY',
-  authDomain: 'REPLACE_WITH_PROJECT.firebaseapp.com',
-  projectId: 'REPLACE_WITH_PROJECT',
-  appId: 'REPLACE_WITH_APP_ID'
+  apiKey: "AIzaSyDFz_8stfDKQKYk2z1pSSiXQiJqJQX_c7I",
+  authDomain: "my-finance-dashboard-b569c.firebaseapp.com",
+  projectId: "my-finance-dashboard-b569c",
+  storageBucket: "my-finance-dashboard-b569c.firebasestorage.app",
+  messagingSenderId: "716582968573",
+  appId: "1:716582968573:web:27f97f9dd3fe9ef5e63294"
 };
