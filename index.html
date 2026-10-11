@@ -192,6 +192,7 @@
 </head>
 <body>
 
+  <div id="offlineBanner" role="status" aria-live="polite" style="display:none;position:fixed;top:0;left:0;right:0;z-index:60;padding:.55rem 1rem;text-align:center;background:#78350f;color:#fff;font-size:.82rem">📴 وضع بدون إنترنت — المصروفات تُحفظ على الجهاز والمزامنة ستُحاول بعد الاتصال</div>
   <!-- APP SIDEBAR -->
   <aside>
     <div>
@@ -2208,7 +2209,13 @@
     const pendingKey='finance_pending_cloud_sync';
     const baselineKey=uid=>'finance_cloud_baseline_'+uid;
     const setStatus=()=>{ if(!navigator.onLine) status('📴 بدون إنترنت: بياناتك محفوظة على الجهاز، والمزامنة معلّقة'); };
-    window.addEventListener('offline',setStatus);
+    function updateOfflineBanner(){
+      const e=document.getElementById('offlineBanner');
+      if(e)e.style.display=navigator.onLine?'none':'block';
+    }
+    window.addEventListener('offline',()=>{updateOfflineBanner();setStatus();});
+    window.addEventListener('online',updateOfflineBanner);
+    document.addEventListener('DOMContentLoaded',updateOfflineBanner);
     window.addEventListener('online',()=>{status('🌐 عاد الاتصال — جاري فحص سلامة المزامنة');if(user){subscribeCloud(user.uid);setTimeout(()=>window.financeCloudSync(true),2000);}});
     document.addEventListener('visibilitychange',()=>{if(!document.hidden&&user&&navigator.onLine&&localStorage.getItem(pendingKey)==='1')window.financeCloudSync(true);});
     setInterval(()=>{if(user&&navigator.onLine&&localStorage.getItem(pendingKey)==='1')window.financeCloudSync(true);},20000);
@@ -2541,7 +2548,12 @@
       }catch(e){loadingCloud=false;status('❌ فشل حل التعارض: '+e.message);alert('لم تكتمل العملية: '+e.message);}
     };
     document.addEventListener('DOMContentLoaded',()=>{ready();renderCurrentUser(user);});
-    if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+    if('serviceWorker' in navigator)window.addEventListener('load',async()=>{
+      try {
+        const reg=await navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'});
+        await reg.update();
+      }catch(e){console.warn('تعذر إعداد وضع عدم الاتصال',e);}
+    });
   })();
   </script>
 </body>
