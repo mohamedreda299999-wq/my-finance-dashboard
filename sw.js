@@ -1,4 +1,4 @@
-const CACHE='my-finance-shell-v2';
+const CACHE='my-finance-shell-v3';
 const LOCAL=['./','./index.html','./firebase-config.js','./manifest.webmanifest','./icon.svg'];
 const CDN=['https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js','https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js','https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js'];
 self.addEventListener('install',e=>e.waitUntil((async()=>{
