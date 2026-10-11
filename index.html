@@ -1020,6 +1020,7 @@
 
     function saveStore(store) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+      if (window.financeCloudSave) window.financeCloudSave(store);
     }
 
     function resetStore() {
@@ -1056,6 +1057,7 @@
       renderSidebarNav();
       renderActiveTab();
       updateHeaderBadges();
+      if (window.financeCloudInitUI) window.financeCloudInitUI();
     }
 
     function switchTab(tabId) {
@@ -1573,8 +1575,21 @@
         <div style="display: flex; flex-direction: column; gap: 1.5rem;">
           <div class="card">
             <h3 style="font-size: 1.125rem; font-weight: 700; color: #fff; margin-bottom: 0.5rem;">إعدادات النسخ الاحتياطي وإدارة البيانات</h3>
-            <p style="font-size: 0.75rem; color: var(--text-slate-400); margin-bottom: 1.5rem;">جميع بياناتك تحفظ تلقائياً داخل متصفحك المحلي (localStorage) دون الحاجة لاتصال بالإنترنت.</p>
+            <p style="font-size: 0.75rem; color: var(--text-slate-400); margin-bottom: 1.5rem;">البيانات تُحفظ محلياً، ويمكن تفعيل مزامنة Firebase المشفرة أثناء النقل بين أجهزتك من نفس الحساب. احتفظ بنسخة JSON احتياطية.</p>
 
+            <section class="card" id="cloudPanel" style="margin-bottom:1rem;background:#102339;border:1px solid #365369">
+              <h3 style="color:white;margin-bottom:.5rem">☁️ المزامنة السحابية بين الموبايل والكمبيوتر</h3>
+              <p id="cloudStatus" style="color:#a7b8ca;margin-bottom:.7rem">غير مفعّلة. قم بإعداد Firebase أولاً.</p>
+              <div style="display:flex;flex-wrap:wrap;gap:.6rem;align-items:center">
+                <input id="cloudEmail" type="email" placeholder="البريد الإلكتروني" autocomplete="username" style="padding:.6rem;border-radius:.5rem;background:#1e293b;color:white;border:1px solid #64748b;max-width:240px" />
+                <input id="cloudPassword" type="password" placeholder="كلمة مرور حساب المزامنة" autocomplete="current-password" style="padding:.6rem;border-radius:.5rem;background:#1e293b;color:white;border:1px solid #64748b;max-width:240px" />
+                <button class="btn btn-primary" onclick="window.financeCloudLogin?.(false)">تسجيل الدخول</button>
+                <button class="btn btn-secondary" onclick="window.financeCloudLogin?.(true)">إنشاء حساب</button>
+                <button class="btn btn-secondary" onclick="window.financeCloudLogout?.()">تسجيل خروج</button>
+                <button class="btn btn-secondary" onclick="window.financeCloudSync?.()">مزامنة الآن</button>
+              </div>
+              <p style="font-size:.75rem;color:#94a3b8;margin-top:.75rem">لا تستخدم حسابك قبل تفعيل قواعد أمان Firestore. لو عدّلت نفس البيانات على جهازين دون اتصال، آخر حفظ قد يطغى على الآخر. لا تستخدم كلمة مرور حساب GitHub هنا.</p>
+            </section>
             <div style="display: flex; flex-wrap: wrap; gap: 1rem;">
               <button onclick="exportDataJSON()" class="btn btn-secondary" style="color: var(--emerald-500);">
                 📥 تصدير نسخة احتياطية (JSON)
@@ -1851,6 +1866,81 @@
     }
 
     window.addEventListener('DOMContentLoaded', initApp);
+  </script>
+
+  <script src="./firebase-config.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  <script>
+  (() => {
+    let auth, db, user, unsubscribe, pendingTimer, loadingCloud = false, initialized = false;
+    const status = msg => { const e=document.getElementById('cloudStatus');if(e)e.textContent=msg; };
+    function ready() {
+      if (initialized) return true;
+      if (!window.FINANCE_FIREBASE_CONFIG || !window.firebase || !window.FINANCE_FIREBASE_CONFIG.apiKey || window.FINANCE_FIREBASE_CONFIG.apiKey.includes('REPLACE')) {
+        status('للتفعيل: أدخل إعدادات مشروعك في firebase-config.js.'); return false;
+      }
+      try { firebase.initializeApp(window.FINANCE_FIREBASE_CONFIG);auth=firebase.auth();db=firebase.firestore();initialized=true;
+        auth.onAuthStateChanged(async u => {
+          user=u;
+          if(unsubscribe){unsubscribe();unsubscribe=null;}
+          if(!u){status('غير مسجّل دخول. البيانات الآن محلية فقط.');return;}
+          status('متصل بحساب '+u.email+' — جاري تحميل البيانات');
+          const doc=db.collection('users').doc(u.uid).collection('private').doc('finance');
+          try {
+            const snap=await doc.get();
+            if(snap.exists){
+              const remote=snap.data().store;
+              if(!remote || !(typeof FinancialEngine !== "undefined" && FinancialEngine.validateBackupJSON(remote))) throw new Error('النسخة السحابية غير صالحة');
+              const isSame=JSON.stringify(remote)===localStorage.getItem('my_finance_dashboard_db_v3');
+              const useCloud=isSame || confirm('يوجد ملف مالي على السحابة. اضغط موافق لتحميله واستبدال نسخة هذا الجهاز، أو إلغاء للاحتفاظ بالمحلي ورفعه للسحابة. يُنصح بتصدير نسخة JSON أولاً.');
+              if(useCloud && !isSame){loadingCloud=true;localStorage.setItem('my_finance_dashboard_db_v3',JSON.stringify(remote));loadingCloud=false;location.reload();return;}
+              await doc.set({store:JSON.parse(localStorage.getItem('my_finance_dashboard_db_v3')),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+            }else{
+              await doc.set({store:JSON.parse(localStorage.getItem('my_finance_dashboard_db_v3')),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+            }
+            status('✅ متصل بالسحابة — التغييرات ستُرفع تلقائيًا');
+            unsubscribe=doc.onSnapshot(snap=>{
+              if (!snap.exists || snap.metadata.hasPendingWrites || loadingCloud) return;
+              const remote=snap.data()?.store;
+              if(!remote || !(typeof FinancialEngine !== "undefined" && FinancialEngine.validateBackupJSON(remote)))return;
+              const here=localStorage.getItem('my_finance_dashboard_db_v3');
+              const remoteStr=JSON.stringify(remote);
+              if(here!==remoteStr){
+                loadingCloud=true;localStorage.setItem('my_finance_dashboard_db_v3',remoteStr);loadingCloud=false;
+                status('🔄 وصلت بيانات جديدة من جهاز آخر — حدّث الصفحة لعرضها');
+              }
+            },e=>status('تعذر استقبال تحديثات السحابة: '+e.message));
+          }catch(e){status('خطأ بالمزامنة: '+e.message)}
+        });return true;
+      }catch(e){status('خطأ إعداد Firebase: '+e.message);return false;}
+    }
+    window.financeCloudInitUI=()=>{ ready();if(user)status('✅ مسجّل دخول: '+user.email); };
+    window.financeCloudLogin=async(register)=>{
+      if(!ready())return;
+      const email=document.getElementById('cloudEmail')?.value?.trim();
+      const password=document.getElementById('cloudPassword')?.value;
+      if(!email || !password){alert('أدخل البريد الإلكتروني وكلمة المرور');return;}
+      try { await (register?auth.createUserWithEmailAndPassword(email,password):auth.signInWithEmailAndPassword(email,password)); }
+      catch(e){alert('تعذر تسجيل الدخول: '+e.message)}
+    };
+    window.financeCloudLogout=async()=>{if(auth)await auth.signOut();};
+    window.financeCloudSave=store=>{
+      if(!user || !db || loadingCloud)return;
+      clearTimeout(pendingTimer);
+      pendingTimer=setTimeout(async()=>{
+        try{await db.collection('users').doc(user.uid).collection('private').doc('finance').set({store,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});status('✅ تم حفظ أحدث تغييراتك على السحابة');}
+        catch(e){status('⚠️ لم يتم رفع التغيير؛ محفوظ محليًا فقط: '+e.message);}
+      },1200);
+    };
+    window.financeCloudSync=()=>{
+      if(!user){alert('سجّل الدخول أولًا');return;}
+      const raw=localStorage.getItem('my_finance_dashboard_db_v3');
+      if(raw)window.financeCloudSave(JSON.parse(raw));
+    };
+    document.addEventListener('DOMContentLoaded',()=>{ready();});
+  })();
   </script>
 </body>
 </html>
