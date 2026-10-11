@@ -2216,7 +2216,7 @@
     window.addEventListener('offline',()=>{updateOfflineBanner();setStatus();});
     window.addEventListener('online',updateOfflineBanner);
     document.addEventListener('DOMContentLoaded',updateOfflineBanner);
-    window.addEventListener('online',()=>{status('🌐 عاد الاتصال — جاري فحص سلامة المزامنة');if(user){subscribeCloud(user.uid);setTimeout(()=>window.financeCloudSync(true),2000);}});
+    window.addEventListener('online',()=>{status('🌐 عاد الاتصال — جاري فحص سلامة المزامنة');if(user){setTimeout(()=>window.financeCloudSync(true),2500);}});
     document.addEventListener('visibilitychange',()=>{if(!document.hidden&&user&&navigator.onLine&&localStorage.getItem(pendingKey)==='1')window.financeCloudSync(true);});
     setInterval(()=>{if(user&&navigator.onLine&&localStorage.getItem(pendingKey)==='1')window.financeCloudSync(true);},20000);
 
@@ -2369,6 +2369,14 @@
       clearTimeout(pendingTimer);
       pendingTimer=setTimeout(()=>window.financeCloudSync(),1500);
     };
+    function sameFinanceData(a,b){
+      if(a===b)return true;
+      if(!a||!b)return false;
+      try {
+        const canonical=v=>JSON.stringify(v,(k,x)=>x&&typeof x==='object'&&!Array.isArray(x)?Object.fromEntries(Object.entries(x).sort(([a],[b])=>a.localeCompare(b))):x);
+        return canonical(typeof a==='string'?JSON.parse(a):a)===canonical(typeof b==='string'?JSON.parse(b):b);
+      }catch(e){return false;}
+    }
     // Three-way merge: only independent transaction edits; all other concurrent edits require review.
     function mergeTransactionsSafely(base,local,remote){
       if(!base||!local||!remote)throw Error('لا توجد نقطة مزامنة سابقة للدمج');
@@ -2431,13 +2439,13 @@
         const remoteRaw=remote?JSON.stringify(remote):null;
         const baseline=localStorage.getItem(baselineKey(uid));
         const pending=localStorage.getItem(pendingKey)==='1';
-        if(remoteRaw===localRaw){
+        if(sameFinanceData(remoteRaw,localRaw)){
           localStorage.setItem(baselineKey(uid),localRaw);
           localStorage.removeItem(pendingKey);
           status('✅ بيانات هذا الجهاز متطابقة مع السحابة');return;
         }
         if(pending){
-          if(remoteRaw!==null && remoteRaw!==baseline){
+          if(remoteRaw!==null && !sameFinanceData(remoteRaw,baseline)){
             if(!baseline){status('⚠️ لا يوجد سجل لآخر مزامنة. صدّر JSON قبل حل التعارض.');return;}
             const base=JSON.parse(baseline);
             const merged=mergeTransactionsSafely(base,JSON.parse(localRaw),remote);
@@ -2445,11 +2453,11 @@
             // Transaction retries on concurrent writes; never overwrite a changed cloud snapshot.
             await db.runTransaction(async trx=>{
               const latest=await trx.get(doc);
-              if(!latest.exists||JSON.stringify(latest.data().store)!==remoteRaw)throw Error('تغيرت السحابة أثناء الدمج، أعد المحاولة');
+              if(!latest.exists||!sameFinanceData(latest.data().store,remoteRaw))throw Error('تغيرت السحابة أثناء الدمج، أعد المحاولة');
               trx.set(doc,{store:merged,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
             });
             localStorage.setItem(baselineKey(uid),mergedRaw);
-            if(localStorage.getItem('my_finance_dashboard_db_v3')===localRaw){
+            if(sameFinanceData(localStorage.getItem('my_finance_dashboard_db_v3'),localRaw)){
               loadingCloud=true;localStorage.setItem('my_finance_dashboard_db_v3',mergedRaw);
               localStorage.removeItem(pendingKey);
               try{renderActiveTab();updateHeaderBadges();}finally{loadingCloud=false;}
@@ -2466,7 +2474,7 @@
           subscribeCloud(uid);
           status('✅ تم رفع التغييرات إلى السحابة');return;
         }
-        if(remoteRaw!==null && baseline===localRaw){
+        if(remoteRaw!==null && sameFinanceData(baseline,localRaw)){
           loadingCloud=true;
           localStorage.setItem('my_finance_dashboard_db_v3',remoteRaw);
           localStorage.setItem(baselineKey(uid),remoteRaw);
