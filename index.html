@@ -934,7 +934,7 @@
 
     // DEFAULT DEMO DATA
     const DEMO_STORE = {
-      settings: { currencyRateSAR_EGP: 13.0 },
+      settings: { currencyRateSAR_EGP: 13.0, primaryAccountId: 'acc_saudi_main' },
       accounts: [
         { id: 'acc_saudi_bank', name: 'حساب الراجحي (السعودية)', type: 'SAUDI_BANK', balance: 18500.0, currency: 'SAR', accountNumber: 'SA8280000001234567890' },
         { id: 'acc_saudi_wallet', name: 'المحفظة الكاش (ريال)', type: 'CASH', balance: 1200.0, currency: 'SAR', accountNumber: '' },
@@ -1215,6 +1215,26 @@
     }
 
     // 2. SALARY
+
+    function primarySalaryAccount() {
+      return store.accounts.find(a => a.id === store.settings?.primaryAccountId && a.currency === 'SAR')
+        || store.accounts.find(a => a.currency === 'SAR' && a.type !== 'CASH')
+        || store.accounts.find(a => a.currency === 'SAR');
+    }
+    function setPrimarySalaryAccount(id) {
+      const acc = store.accounts.find(a => a.id === id && a.currency === 'SAR');
+      if (!acc) return alert('اختر حسابًا بالريال السعودي');
+      store.settings ||= {};
+      store.settings.primaryAccountId = id;
+      saveStore(store); renderActiveTab();
+    }
+    function openPrimaryTransfer() {
+      openModal('transferModal');
+      const from = document.getElementById('trFromAccountId');
+      const acc = primarySalaryAccount();
+      if (from && acc) from.value = acc.id;
+    }
+
     function renderSalaryView(container) {
       const active = engine.getActiveSalaryCycle() || { salaryAmount: 0, carryForwardAmount: 0, payDay: 27, startDate: '', endDate: '' };
       const summary = engine.calculateSalaryCycleSummary();
@@ -1260,8 +1280,16 @@
                   <input type="date" id="salEndDate" value="${active.endDate || ''}" class="form-control">
                 </div>
               </div>
+
               <div>
-                <button type="submit" class="btn btn-primary" style="font-size: 0.875rem;">حفظ إعدادات الراتب والدورة</button>
+                <label style="display:block;color:#cbd5e1;font-size:.85rem;margin-bottom:.4rem">الحساب الأساسي لاستلام الراتب (ريال)</label>
+                <select id="salPrimaryAccount" class="form-control" required>
+                  ${store.accounts.filter(a=>a.currency==='SAR').map(a=>'<option value="'+a.id+'" '+(a.id===primarySalaryAccount()?.id?'selected':'')+'>'+safeHTML(a.name)+'</option>').join('')}
+                </select>
+                <p style="color:#94a3b8;font-size:.75rem;margin-top:.35rem">الحفظ يسجل الراتب في الحساب المختار مرة واحدة؛ تعديل المبلغ أو الحساب يعدّل الإيداع القديم.</p>
+              </div>
+              <div>
+                <button type="submit" class="btn btn-primary" style="font-size: 0.875rem;">حفظ الراتب وإيداعه بالحساب الأساسي</button>
               </div>
             </form>
           </div>
@@ -1269,21 +1297,39 @@
       `;
     }
 
+
     function handleSalaryUpdate(e) {
       e.preventDefault();
-      let active = engine.getActiveSalaryCycle();
-      if (!active) {
-        active = { id: 'sc_' + Date.now(), status: 'ACTIVE' };
-        store.salaryCycles.push(active);
+      const salary = Number(document.getElementById('salAmount').value);
+      const start = document.getElementById('salStartDate').value;
+      const end = document.getElementById('salEndDate').value;
+      const accId = document.getElementById('salPrimaryAccount').value;
+      const account = store.accounts.find(a=>a.id===accId && a.currency==='SAR');
+      if (!account) return alert('اختر حسابًا أساسيًا بالريال.');
+      if (!Number.isFinite(salary) || salary<0) return alert('قيمة الراتب غير صالحة');
+      if (!start || !end || start>end || !Number.isFinite(Date.parse(start)) || !Number.isFinite(Date.parse(end))) return alert('تواريخ الدورة غير صالحة');
+      const active = engine.getActiveSalaryCycle();
+      const cycleId = active?.id || ('sc_'+Date.now());
+      const oldTx = store.transactions.find(t=>t.id===active?.salaryReceiptId) ||
+                    store.transactions.find(t=>t.incomeKind==='SALARY' && t.salaryCycleId===cycleId);
+      if (oldTx && !store.accounts.some(a=>a.id===oldTx.accountId)) return alert('حساب الراتب السابق مفقود، لا يمكن التعديل.');
+      if (oldTx) engine.deleteTransaction(oldTx.id);
+      const cycle = active || {id:cycleId,status:'ACTIVE'};
+      if (!active) store.salaryCycles.push(cycle);
+      cycle.name=document.getElementById('salName').value;
+      cycle.salaryAmount=salary;
+      cycle.startDate=start;cycle.endDate=end;
+      store.settings ||= {};
+      store.settings.primaryAccountId=accId;
+      cycle.salaryReceiptId=null;
+      if(salary>0){
+        const tx=engine.addTransaction({amount:salary,currency:'SAR',type:'INCOME',
+          description:'إيداع الراتب - '+(cycle.name||start),categoryId:'cat_salary',
+          accountId:accId,date:start+'T12:00:00'});
+        tx.incomeKind='SALARY';tx.salaryCycleId=cycleId;cycle.salaryReceiptId=tx.id;
       }
-      active.name = document.getElementById('salName').value;
-      const salaryInput = Number(document.getElementById('salAmount').value);
-      if (!Number.isFinite(salaryInput) || salaryInput < 0) { alert('قيمة الراتب غير صالحة'); return; }
-      active.salaryAmount = salaryInput;
-      active.startDate = document.getElementById('salStartDate').value;
-      active.endDate = document.getElementById('salEndDate').value;
       saveStore(store);
-      alert('تم تحديث دورة الراتب بنجاح!');
+      alert('تم إيداع الراتب بالحساب الأساسي دون تكرار.');
       renderActiveTab();
     }
 
@@ -1355,6 +1401,7 @@
     }
 
     function handleDeleteTransactionAction(txId) {
+      if (store.transactions.some(t=>t.id===txId && t.incomeKind==='SALARY')) return alert('لتعديل الراتب أو إلغاء إيداعه استخدم صفحة إدارة الراتب.');
       if (confirm('هل أنت أثق من حذف هذه المعاملة واسترجاع قيمتها الحسابية؟')) {
         try {
           engine.deleteTransaction(txId);
@@ -1496,7 +1543,7 @@
             <h3 style="font-size: 1.125rem; font-weight: 700; color: #fff;">الحسابات المالية والبنوك</h3>
             <div style="display: flex; gap: 0.5rem;">
               <button onclick="openModal('addAccountModal')" class="btn btn-secondary" style="font-size: 0.75rem;">+ حساب جديد</button>
-              <button onclick="openModal('transferModal')" class="btn btn-primary" style="font-size: 0.75rem;">⇆ تحويل بين الحسابات</button>
+              <button onclick="openPrimaryTransfer()" class="btn btn-primary" style="font-size: 0.75rem;">⇆ تحويل بين الحسابات</button>
             </div>
           </div>
           <div class="grid-3">
@@ -1506,7 +1553,8 @@
                   <div style="font-size: 0.75rem; color: var(--text-slate-400); margin-bottom: 0.25rem;">${acc.type}</div>
                   <button onclick="handleDeleteAccountAction('${acc.id}')" style="background: none; border: none; color: var(--red-400); cursor: pointer; font-size: 0.75rem;">حذف</button>
                 </div>
-                <div style="font-size: 1rem; font-weight: 700; color: #fff;">${acc.name}</div>
+                <div style="font-size: 1rem; font-weight: 700; color: #fff;">${safeHTML(acc.name)} ${acc.id===primarySalaryAccount()?.id?'⭐ الأساسي':''}</div>
+                ${acc.currency==='SAR' && acc.id!==primarySalaryAccount()?.id?'<button class="btn btn-secondary" style="font-size:.75rem;margin-top:.5rem" onclick="setPrimarySalaryAccount(\''+acc.id+'\')">تعيين كأساسي</button>':''}
                 <div style="font-size: 1.5rem; font-weight: 900; color: var(--emerald-500); margin-top: 0.5rem;">${formatMoney(acc.balance, acc.currency)}</div>
               </div>
             `).join('')}
@@ -1516,6 +1564,7 @@
     }
 
     function handleDeleteAccountAction(accId) {
+      if (store.settings?.primaryAccountId===accId || store.transactions.some(t=>t.accountId===accId && t.incomeKind==='SALARY')) return alert('غيّر الحساب الأساسي أو انقل الراتب منه قبل الحذف.');
       if (confirm('هل أنت أثق من حذف هذا الحساب المالي؟')) {
         try {
           engine.deleteAccountSafely(accId);
