@@ -2210,6 +2210,45 @@
     window.addEventListener('DOMContentLoaded', initApp);
   </script>
 
+  <script>
+  (() => {
+    const legacy='my_finance_dashboard_db_v3', active='finance_active_uid';
+    const pending='finance_pending_cloud_sync', prefix='finance_profile_v1_';
+    const safeId=x=>x==='guest'?'guest':String(x||'').replace(/[^A-Za-z0-9_-]/g,'');
+    const profileKey=(uid,suffix)=>prefix+safeId(uid)+'_'+suffix;
+    window.financeSwitchProfile=function(uid){
+      const next=safeId(uid||'guest'), prior=localStorage.getItem(active)||'legacy';
+      if(next===prior)return false;
+      const live=localStorage.getItem(legacy), pendingValue=localStorage.getItem(pending);
+      if(live!==null)localStorage.setItem(profileKey(prior,'data'),live);
+      if(pendingValue!==null)localStorage.setItem(profileKey(prior,'pending'),pendingValue);
+      let dest=localStorage.getItem(profileKey(next,'data'));
+      let destPending=localStorage.getItem(profileKey(next,'pending'));
+      if(dest===null && prior==='legacy' && next!=='guest' && live!==null &&
+        localStorage.getItem('finance_cloud_baseline_'+next)===live){
+        dest=live;destPending=pendingValue;
+      }
+      if(dest===null)localStorage.removeItem(legacy);
+      else localStorage.setItem(legacy,dest);
+      if(destPending==='1')localStorage.setItem(pending,'1');
+      else localStorage.removeItem(pending);
+      localStorage.setItem(active,next);
+      location.reload();
+      return true;
+    };
+    document.documentElement.setAttribute('data-finance-auth-pending','1');
+    const style=document.createElement('style');
+    style.textContent='html[data-finance-auth-pending="1"] body{visibility:hidden}';
+    document.head.appendChild(style);
+    window.financeAuthReady=()=>document.documentElement.removeAttribute('data-finance-auth-pending');
+    // Authentication resolution is mandatory before displaying a prior user's financial records.
+    window.financeAuthFailed=()=>{
+      const previous=localStorage.getItem(active);
+      if(previous && previous!=='guest')window.financeSwitchProfile('guest');
+      else window.financeAuthReady();
+    };
+  })();
+  </script>
   <script src="./firebase-config.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
@@ -2301,11 +2340,13 @@
     function ready() {
       if (initialized) return true;
       if (!window.FINANCE_FIREBASE_CONFIG || !window.firebase || !window.FINANCE_FIREBASE_CONFIG.apiKey || window.FINANCE_FIREBASE_CONFIG.apiKey.includes('REPLACE')) {
-        status('للتفعيل: أدخل إعدادات مشروعك في firebase-config.js.'); return false;
+        window.financeAuthFailed?.();status('للتفعيل: أدخل إعدادات مشروعك في firebase-config.js.'); return false;
       }
       try { firebase.initializeApp(window.FINANCE_FIREBASE_CONFIG);auth=firebase.auth();db=firebase.firestore();initialized=true;
         auth.onAuthStateChanged(async u => {
           user=u;
+          if(window.financeSwitchProfile?.(u?.uid||'guest'))return;
+          window.financeAuthReady?.();
           renderCurrentUser(u);
           if(unsubscribe){unsubscribe();unsubscribe=null;}
           if(!u){status('غير مسجّل دخول. البيانات الآن محلية فقط.');return;}
@@ -2356,14 +2397,20 @@
               localStorage.setItem(baselineKey(u.uid),JSON.stringify(local));
               if(localStorage.getItem('my_finance_dashboard_db_v3')===localRaw)localStorage.removeItem(pendingKey);
             } else if(remote) {
-              localStorage.setItem(baselineKey(u.uid),JSON.stringify(remote));
+              loadingCloud=true;
+              const remoteRaw=JSON.stringify(remote);
+              localStorage.setItem('my_finance_dashboard_db_v3',remoteRaw);
+              localStorage.setItem(baselineKey(u.uid),remoteRaw);
+              localStorage.removeItem(pendingKey);
+              try{renderActiveTab();updateHeaderBadges();}finally{loadingCloud=false;}
+
               if(!localStorage.getItem(pendingKey))localStorage.removeItem(pendingKey);
             }
             status('✅ حساب متصل — جاري استقبال التحديثات');
             subscribeCloud(u.uid);
           }catch(e){loadingCloud=false;status('خطأ بالمزامنة: '+e.message)}
         });return true;
-      }catch(e){status('خطأ إعداد Firebase: '+e.message);return false;}
+      }catch(e){window.financeAuthFailed?.();status('خطأ إعداد Firebase: '+e.message);return false;}
     }
     window.financeCloudInitUI=()=>{ ready();renderCurrentUser(user);if(user)status('✅ مسجّل دخول: '+user.email); };
     window.financeCloudLogin=async(register)=>{
