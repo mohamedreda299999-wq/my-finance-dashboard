@@ -1074,6 +1074,7 @@
       stocks: [],
       portfolioTrades: [],
       goals: [],
+      budgets: [],
       simpleInvestments: { stocks: [], gold: [] }
     };
 
@@ -1688,30 +1689,101 @@
     }
 
     // 7. BUDGETS
+    function budgetMonth(){return new Date().toISOString().slice(0,7);}
+    function categorySpentForMonth(categoryId,month){
+      return store.transactions.filter(t=>t.type==='EXPENSE'&&t.categoryId===categoryId&&String(t.date).slice(0,7)===month)
+        .reduce((sum,t)=>sum+engine.convertHistorical(t,'SAR'),0);
+    }
+    function upsertBudget(id=null){
+      store.budgets ||= [];
+      const existing=store.budgets.find(b=>b.id===id);
+      const categories=store.categories.filter(c=>c.type==='EXPENSE');
+      if(!categories.length)return alert('أضف تصنيف مصروف أولًا');
+      const choices=categories.map((c,i)=>(i+1)+'. '+c.name).join('\n');
+      const entered=prompt('رقم تصنيف المصروف:\n'+choices,existing?String(categories.findIndex(c=>c.id===existing.categoryId)+1):'1');
+      if(entered===null)return;
+      const index=Number(entered)-1;
+      if(!Number.isInteger(index)||index<0||index>=categories.length)return alert('رقم التصنيف غير صحيح');
+      const month=prompt('الشهر بصيغة YYYY-MM',existing?.month||budgetMonth());
+      if(month===null)return;
+      if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))return alert('الشهر غير صحيح');
+      const value=prompt('الحد المسموح للصرف بالريال السعودي',String(existing?.limit||''));
+      if(value===null)return;
+      const limit=Number(value);
+      if(!Number.isFinite(limit)||limit<=0)return alert('الميزانية يجب أن تكون أكبر من صفر');
+      if(store.budgets.some(b=>b.id!==id&&b.categoryId===categories[index].id&&b.month===month))return alert('توجد ميزانية لهذا التصنيف والشهر بالفعل');
+      if(existing)Object.assign(existing,{categoryId:categories[index].id,month,limit,currency:'SAR'});
+      else store.budgets.push({id:'budget_'+Date.now(),categoryId:categories[index].id,month,limit,currency:'SAR'});
+      saveStore(store);renderActiveTab();
+    }
+    function deleteBudget(id){
+      if(!confirm('حذف حد الميزانية المحدد؟'))return;
+      store.budgets=(store.budgets||[]).filter(x=>x.id!==id);saveStore(store);renderActiveTab();
+    }
+    function upsertGoal(id=null){
+      const existing=store.goals.find(g=>g.id===id);
+      const name=prompt('اسم الهدف المالي',existing?.title||'');
+      if(name===null)return;
+      const title=name.trim();
+      if(!title||title.length>100)return alert('اسم الهدف مطلوب');
+      const targetRaw=prompt('المبلغ المستهدف',String(existing?.targetAmount||''));
+      if(targetRaw===null)return;
+      const targetAmount=Number(targetRaw);
+      if(!Number.isFinite(targetAmount)||targetAmount<=0)return alert('المبلغ المستهدف غير صالح');
+      const currentRaw=prompt('المبلغ المُدّخر حاليًا',String(existing?.currentAmount??0));
+      if(currentRaw===null)return;
+      const currentAmount=Number(currentRaw);
+      if(!Number.isFinite(currentAmount)||currentAmount<0)return alert('المبلغ المدخر غير صالح');
+      const currency=prompt('العملة: SAR أو EGP',existing?.currency||'SAR');
+      if(currency===null)return;
+      const cur=currency.trim().toUpperCase();
+      if(!['SAR','EGP'].includes(cur))return alert('اختر SAR أو EGP');
+      if(existing)Object.assign(existing,{title,targetAmount,currentAmount,currency:cur});
+      else store.goals.push({id:'goal_'+Date.now(),title,targetAmount,currentAmount,currency:cur});
+      saveStore(store);renderActiveTab();
+    }
+    function deleteGoal(id){
+      if(!confirm('هل تريد حذف الهدف؟'))return;
+      store.goals=store.goals.filter(g=>g.id!==id);saveStore(store);renderActiveTab();
+    }
     function renderBudgetsView(container) {
+      const budgets=store.budgets||[];
       container.innerHTML = `
-        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+        <div style="display:flex;flex-direction:column;gap:1.1rem">
           <div class="card">
-            <h3 style="font-size: 1.125rem; font-weight: 700; color: #fff; margin-bottom: 1rem;">الأهداف المالية وصناديق الطوارئ</h3>
-            <div style="display: flex; flex-direction: column; gap: 1rem;">
-              ${store.goals.map(g => {
-                const pct = Math.min(100, Math.round((g.currentAmount / g.targetAmount) * 100));
-                return `
-                  <div>
-                    <div style="display: flex; justify-content: space-between; font-size: 0.875rem; font-weight: 700; margin-bottom: 0.25rem;">
-                      <span style="color: #fff;">${g.title}</span>
-                      <span style="color: var(--emerald-500);">${formatMoney(g.currentAmount, g.currency)} / ${formatMoney(g.targetAmount, g.currency)} (${pct}%)</span>
-                    </div>
-                    <div style="width: 100%; height: 0.625rem; background-color: var(--bg-slate-800); border-radius: 9999px; overflow: hidden;">
-                      <div style="height: 100%; background-color: var(--emerald-500); border-radius: 9999px; width: ${pct}%;"></div>
-                    </div>
-                  </div>
-                `;
-              }).join('')}
+            <div style="display:flex;justify-content:space-between;gap:.7rem;align-items:center;flex-wrap:wrap">
+              <div><h3 style="color:white">📊 الميزانيات الشهرية حسب التصنيف</h3><p style="color:#94a3b8;font-size:.8rem;margin-top:.35rem">حدد سقف مصروفات لكل تصنيف وقارنه بالصرف الفعلي في الشهر المحدد، بالريال.</p></div>
+              <button class="btn btn-primary" onclick="upsertBudget()">➕ إضافة ميزانية</button>
+            </div>
+            <div style="display:grid;gap:.8rem;margin-top:1rem">
+            ${budgets.map(b=>{
+              const name=store.categories.find(c=>c.id===b.categoryId)?.name||'تصنيف محذوف';
+              const spent=categorySpentForMonth(b.categoryId,b.month);
+              const pct=spent/b.limit*100;
+              return `<div style="background:#020617;padding:.9rem;border:1px solid #334155;border-radius:.7rem">
+                <div style="display:flex;justify-content:space-between;gap:.5rem;flex-wrap:wrap"><strong>${safeHTML(name)} — ${safeHTML(b.month)}</strong><span style="color:${pct>100?'#f87171':'#2dd4bf'}">${formatMoney(spent,'SAR')} / ${formatMoney(b.limit,'SAR')}</span></div>
+                <div style="height:9px;background:#334155;border-radius:30px;overflow:hidden;margin:.65rem 0"><div style="height:100%;background:${pct>100?'#f87171':'#10b981'};width:${Math.min(100,pct)}%"></div></div>
+                <div style="display:flex;gap:.5rem;justify-content:space-between;align-items:center"><small style="color:#94a3b8">${pct>100?'تجاوزت الميزانية بمبلغ '+formatMoney(spent-b.limit,'SAR'):'المتبقي '+formatMoney(b.limit-spent,'SAR')}</small><div style="display:flex;gap:.4rem"><button class="btn btn-secondary" onclick="upsertBudget('${b.id}')">تعديل</button><button class="btn btn-danger" onclick="deleteBudget('${b.id}')">حذف</button></div></div>
+              </div>`;
+            }).join('')}
+            ${budgets.length?'':'<p style="color:#94a3b8">لا توجد ميزانيات بعد. اضغط إضافة ميزانية للبدء.</p>'}
             </div>
           </div>
-        </div>
-      `;
+          <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:.6rem;flex-wrap:wrap"><div><h3 style="color:white">🎯 أهداف الادخار</h3><p style="font-size:.8rem;color:#94a3b8;margin-top:.35rem">تابع التقدم يدويًا، من غير خصم تلقائي من الحسابات البنكية.</p></div><button class="btn btn-primary" onclick="upsertGoal()">➕ إضافة هدف</button></div>
+            <div style="display:grid;gap:.9rem;margin-top:1rem">
+            ${store.goals.map(g=>{
+              const pct=g.targetAmount>0?Math.max(0,Math.min(100,g.currentAmount/g.targetAmount*100)):0;
+              return `<div style="background:#020617;padding:.9rem;border:1px solid #334155;border-radius:.7rem">
+                <div style="display:flex;justify-content:space-between;gap:.6rem;flex-wrap:wrap"><strong>${safeHTML(g.title)}</strong><span style="color:#2dd4bf">${formatMoney(g.currentAmount,g.currency)} / ${formatMoney(g.targetAmount,g.currency)}</span></div>
+                <div style="height:9px;background:#334155;border-radius:30px;overflow:hidden;margin:.65rem 0"><div style="height:100%;width:${pct}%;background:#10b981"></div></div>
+                <div style="display:flex;justify-content:flex-end;gap:.5rem"><button class="btn btn-secondary" onclick="upsertGoal('${g.id}')">تعديل</button><button class="btn btn-danger" onclick="deleteGoal('${g.id}')">حذف</button></div>
+              </div>`;
+            }).join('')}
+            ${store.goals.length?'':'<p style="color:#94a3b8">لا توجد أهداف ادخار بعد.</p>'}
+            </div>
+          </div>
+        </div>`;
     }
 
     // 8. REPORTS
