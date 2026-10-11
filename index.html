@@ -214,14 +214,19 @@
         <div>
           <label style="display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-slate-300); margin-bottom: 0.25rem;">المبلغ والعملة *</label>
           <div style="display: flex; gap: 0.5rem;">
-            <input type="number" step="0.01" required id="qeAmount" placeholder="0.00" class="form-control" style="font-size: 1.125rem; font-weight: 700; flex: 1;">
-            <select id="qeCurrency" class="form-control" style="width: auto; font-weight: 700;">
+            <input type="number" step="0.01" required id="qeAmount" oninput="updateQuickExpenseExchangeUI()" placeholder="0.00" class="form-control" style="font-size: 1.125rem; font-weight: 700; flex: 1;">
+            <select id="qeCurrency" onchange="updateQuickExpenseExchangeUI()" class="form-control" style="width: auto; font-weight: 700;">
               <option value="SAR">SAR (ر.س)</option>
               <option value="EGP">EGP (ج.م)</option>
             </select>
           </div>
         </div>
         <div>
+          <div id="qeExchangeRow" style="display:none;margin-bottom:.9rem;border:1px solid #365369;padding:.7rem;border-radius:.7rem">
+            <label for="qeExchangeRate" style="display:block;font-size:.8rem;color:#cbd5e1;margin-bottom:.4rem">سعر الصرف لهذه العملية: 1 ريال = كام جنيه؟</label>
+            <input type="number" id="qeExchangeRate" min="0.000001" step="any" class="form-control" oninput="updateQuickExpenseExchangeUI()">
+            <div id="qeExchangePreview" style="font-size:.78rem;color:#5eead4;margin-top:.4rem"></div>
+          </div>
           <label style="display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-slate-300); margin-bottom: 0.25rem;">الحساب المالي *</label>
           <select id="qeAccountId" required class="form-control"></select>
         </div>
@@ -621,8 +626,13 @@
         if (!account) throw new Error('الحساب المالي غير موجود');
 
         const txCurrency = currency || account.currency;
-        const accountDeductionAmount = this.convert(numAmount, txCurrency, account.currency);
-        const lockedRate = this.getRate();
+        const lockedRate = txData.exchangeRate == null ? this.getRate() : Number(txData.exchangeRate);
+        if (!Number.isFinite(lockedRate) || lockedRate <= 0) throw new Error('سعر صرف العملية غير صالح');
+        let accountDeductionAmount;
+        if(txCurrency===account.currency) accountDeductionAmount=numAmount;
+        else if(txCurrency==='EGP' && account.currency==='SAR') accountDeductionAmount=numAmount/lockedRate;
+        else if(txCurrency==='SAR' && account.currency==='EGP') accountDeductionAmount=numAmount*lockedRate;
+        else throw new Error('عملات غير مدعومة لهذه المعاملة');
 
         if (type === 'EXPENSE') account.balance -= accountDeductionAmount;
         else if (type === 'INCOME') account.balance += accountDeductionAmount;
@@ -1204,6 +1214,9 @@
                     </div>
                     <div style="font-size: 0.875rem; font-weight: 900; color: ${tx.type === 'EXPENSE' ? 'var(--red-400)' : 'var(--emerald-500)'};">
                       ${tx.type === 'EXPENSE' ? '-' : '+'}${formatMoney(tx.amount, tx.currency)}
+                      <div style="font-size:.73rem;font-weight:600;color:#a5b4fc;margin-top:.22rem">
+                        ${tx.currency==='EGP' ? '≈ '+formatMoney(engine.convertHistorical(tx,'SAR'),'SAR') : '≈ '+formatMoney(engine.convertHistorical(tx,'EGP'),'EGP')}
+                      </div>
                     </div>
                   </div>
                 `;
@@ -1680,6 +1693,7 @@
     function populateModalDropdowns() {
       const accSelect = document.getElementById('qeAccountId');
       if (accSelect) accSelect.innerHTML = store.accounts.map(a => `<option value="${a.id}">${a.name} (${a.balance} ${a.currency})</option>`).join('');
+      updateQuickExpenseExchangeUI();
 
       const catSelect = document.getElementById('qeCategoryId');
       if (catSelect) { const previous = catSelect.value; catSelect.innerHTML = store.categories.filter(c => c.type === 'EXPENSE').map(c => `<option value="${c.id}">${safeHTML(c.name)}</option>`).join('') + '<option value="__add_new_expense_category__">➕ إضافة تصنيف جديد...</option>'; if ([...catSelect.options].some(o => o.value === previous)) catSelect.value = previous; }
@@ -1720,12 +1734,29 @@
       document.getElementById('qeCategoryId').value = category.id;
     }
 
+    function updateQuickExpenseExchangeUI() {
+      const currency=document.getElementById('qeCurrency')?.value;
+      const row=document.getElementById('qeExchangeRow');
+      const rateInput=document.getElementById('qeExchangeRate');
+      const preview=document.getElementById('qeExchangePreview');
+      if(!row || !rateInput || !preview)return;
+      row.style.display=currency==='EGP'?'block':'none';
+      if(currency!=='EGP')return;
+      if(!rateInput.value)rateInput.value=String(engine.getRate());
+      const amount=Number(document.getElementById('qeAmount')?.value);
+      const rate=Number(rateInput.value);
+      preview.textContent=Number.isFinite(rate)&&rate>0&&Number.isFinite(amount)&&amount>0
+        ? 'القيمة بالريال: '+formatMoney(amount/rate,'SAR')+' | القيمة بالجنيه: '+formatMoney(amount,'EGP')
+        : 'أدخل المبلغ وسعر صرف صحيح';
+    }
+
     function handleQuickExpenseSubmit(e) {
       e.preventDefault();
       try {
         engine.addTransaction({
           amount: document.getElementById('qeAmount').value,
           currency: document.getElementById('qeCurrency').value,
+          exchangeRate: document.getElementById('qeCurrency').value === 'EGP' ? document.getElementById('qeExchangeRate').value : null,
           accountId: document.getElementById('qeAccountId').value,
           categoryId: document.getElementById('qeCategoryId').value,
           description: document.getElementById('qeDescription').value || 'مصروف سريع',
