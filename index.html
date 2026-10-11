@@ -2309,6 +2309,11 @@
                 await doc.set({store:local,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
                 localStorage.setItem(baselineKey(u.uid),JSON.stringify(local));
                 if(localStorage.getItem('my_finance_dashboard_db_v3')===localRaw)localStorage.removeItem(pendingKey);
+              } else if(pending && baselineRaw) {
+                subscribeCloud(u.uid);
+                setTimeout(()=>window.financeCloudSync(true),200);
+                status('🔄 جاري فحص ودمج المعاملات المعلقة');
+                return;
               } else if(pending || (baselineRaw && baselineRaw!==remoteRaw && baselineRaw!==localRaw)) {
                 status('⚠️ تعارض نسخ: توجد بيانات مختلفة بين الجهاز والسحابة. صدّر JSON من الجهازين قبل الحل.');
                 return;
@@ -2357,6 +2362,50 @@
       clearTimeout(pendingTimer);
       pendingTimer=setTimeout(()=>window.financeCloudSync(),1500);
     };
+    // Three-way merge: only independent transaction edits; all other concurrent edits require review.
+    function mergeTransactionsSafely(base,local,remote){
+      if(!base||!local||!remote)throw Error('لا توجد نقطة مزامنة سابقة للدمج');
+      const other=x=>{const y=structuredClone(x);delete y.transactions;delete y.accounts;return JSON.stringify(y,Object.keys(y).sort());};
+      const stable=x=>JSON.stringify(x,(k,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.fromEntries(Object.entries(v).sort(([a],[b])=>a.localeCompare(b))):v);
+      const nonTx=x=>{const y=structuredClone(x);delete y.transactions;y.accounts=y.accounts.map(a=>({...a,balance:0}));return stable(y);};
+      if(nonTx(base)!==nonTx(local)||nonTx(base)!==nonTx(remote))throw Error('هناك تعديلات على الحسابات أو إعدادات أخرى تحتاج مراجعة يدوية');
+      const map=x=>new Map(x.transactions.map(t=>[t.id,t]));
+      const bm=map(base),lm=map(local),rm=map(remote);
+      const ids=new Set([...bm.keys(),...lm.keys(),...rm.keys()]);
+      const changed=(a,b)=>stable(a??null)!==stable(b??null);
+      const merged=structuredClone(remote);
+      const result=new Map(rm);
+      const txImpact=t=>{
+        if(!t)return [];
+        const amount=Number(t.accountAmount??t.amount);
+        if(!Number.isFinite(amount)||!t.accountId)throw Error('معاملة برصيد غير واضح');
+        if(t.type==='EXPENSE')return [[t.accountId,-amount]];
+        if(t.type==='INCOME')return [[t.accountId,amount]];
+        throw Error('يوجد تحويل أو استثمار يحتاج دمجًا متخصصًا');
+      };
+      const accountDelta=new Map();
+      for(const id of ids){
+        const b=bm.get(id),l=lm.get(id),r=rm.get(id);
+        const lc=changed(b,l),rc=changed(b,r);
+        if(!lc)continue;
+        if(rc&&changed(l,r))throw Error('نفس المعاملة تغيرت في الجهازين: '+id);
+        if(rc)continue;
+        for(const [aid,amount] of txImpact(b))accountDelta.set(aid,(accountDelta.get(aid)||0)-amount);
+        for(const [aid,amount] of txImpact(l))accountDelta.set(aid,(accountDelta.get(aid)||0)+amount);
+        if(l)result.set(id,l);else result.delete(id);
+      }
+      const baseAccounts=new Map(base.accounts.map(a=>[a.id,a]));
+      const localAccounts=new Map(local.accounts.map(a=>[a.id,a]));
+      for(const [aid,amount]of accountDelta){
+        const a=localAccounts.get(aid),b=baseAccounts.get(aid),r=merged.accounts.find(x=>x.id===aid);
+        if(!a||!b||!r)throw Error('الحساب المرتبط بالعملية غير موجود');
+        if(Math.abs((a.balance-b.balance)-amount)>0.001)throw Error('رصيد هذا الجهاز لا يطابق حركة معاملاته: '+aid);
+        r.balance=Number((r.balance+amount).toFixed(6));
+      }
+      merged.transactions=[...result.values()];
+      if(!FinancialEngine.validateBackupJSON(merged))throw Error('النسخة المدمجة غير صالحة');
+      return merged;
+    }
     let syncInFlight=false;
     window.financeCloudSync=async(forceRead=false)=>{
       if(syncInFlight)return;
@@ -2382,7 +2431,25 @@
         }
         if(pending){
           if(remoteRaw!==null && remoteRaw!==baseline){
-            status('⚠️ تعارض مزامنة: الجهاز والسحابة لديهما تعديلات مختلفة. لا ترفع فوقها. صدّر JSON من الجهازين.');return;
+            if(!baseline){status('⚠️ لا يوجد سجل لآخر مزامنة. صدّر JSON قبل حل التعارض.');return;}
+            const base=JSON.parse(baseline);
+            const merged=mergeTransactionsSafely(base,JSON.parse(localRaw),remote);
+            const mergedRaw=JSON.stringify(merged);
+            // Transaction retries on concurrent writes; never overwrite a changed cloud snapshot.
+            await db.runTransaction(async trx=>{
+              const latest=await trx.get(doc);
+              if(!latest.exists||JSON.stringify(latest.data().store)!==remoteRaw)throw Error('تغيرت السحابة أثناء الدمج، أعد المحاولة');
+              trx.set(doc,{store:merged,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+            });
+            localStorage.setItem(baselineKey(uid),mergedRaw);
+            if(localStorage.getItem('my_finance_dashboard_db_v3')===localRaw){
+              loadingCloud=true;localStorage.setItem('my_finance_dashboard_db_v3',mergedRaw);
+              localStorage.removeItem(pendingKey);
+              try{renderActiveTab();updateHeaderBadges();}finally{loadingCloud=false;}
+            }
+            subscribeCloud(uid);
+            status('✅ تم دمج المعاملات غير المتعارضة ومزامنتها بأمان');
+            return;
           }
           const local=JSON.parse(localRaw);
           if(!FinancialEngine.validateBackupJSON(local))throw Error('البيانات المحلية غير صالحة');
