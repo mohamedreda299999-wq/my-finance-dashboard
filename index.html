@@ -2174,11 +2174,19 @@
               if(!remote || !(typeof FinancialEngine !== "undefined" && FinancialEngine.validateBackupJSON(remote))) throw new Error('النسخة السحابية غير صالحة');
               const remoteStr=JSON.stringify(remote);
               const localStr=localStorage.getItem('my_finance_dashboard_db_v3');
-              const isSame=remoteStr===localStr;
+              let isSame=remoteStr===localStr;
               const baseline=localStorage.getItem(baselineKey(u.uid));
               if(localStorage.getItem(pendingKey)==='1' && baseline && baseline!==remoteStr){
                 status('⚠️ تعارض مزامنة: تغيّرت السحابة والجهاز. صدّر نسخة احتياطية قبل حل التعارض.');
                 return;
+              }
+              if (!isSame && baseline===remoteStr && localStorage.getItem(pendingKey)==='1' && localStr) {
+                const localData=JSON.parse(localStr);
+                if(!FinancialEngine.validateBackupJSON(localData)) throw Error('البيانات المحلية غير صالحة');
+                await doc.set({store:localData,updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+                if(localStorage.getItem('my_finance_dashboard_db_v3')===localStr)localStorage.removeItem(pendingKey);
+                isSame=true;
+                status('✅ تمت مزامنة المصروفات المسجلة بدون إنترنت');
               }
               if (!isSame) {
                 // Never overwrite either copy automatically. Ask once per cloud version in this tab.
