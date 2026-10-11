@@ -2208,7 +2208,7 @@
     const baselineKey=uid=>'finance_cloud_baseline_'+uid;
     const setStatus=()=>{ if(!navigator.onLine) status('📴 بدون إنترنت: بياناتك محفوظة على الجهاز، والمزامنة معلّقة'); };
     window.addEventListener('offline',setStatus);
-    window.addEventListener('online',()=>{status('🌐 عاد الاتصال — جاري فحص سلامة المزامنة');if(user)window.financeCloudSync(true);});
+    window.addEventListener('online',()=>{status('🌐 عاد الاتصال — جاري فحص سلامة المزامنة');if(user){subscribeCloud(user.uid);window.financeCloudSync(true);}});
 
     function renderCurrentUser(u) {
       const label=u ? (u.displayName || u.email || 'مستخدم مسجّل') : '';
